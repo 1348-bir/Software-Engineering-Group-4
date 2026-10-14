@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub 仓库代码统计</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            --red: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #60a5fa;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .window-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .window-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 10px;
+        }
+
+        .window-title { font-size: 1.1rem; font-weight: 600; }
+        .window-dots { display: flex; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-red { background-color: #ef4444; }
+        .dot-yellow { background-color: #f59e0b; }
+        .dot-green { background-color: #10b981; }
+
+        .url-form {
+            border: 2px dashed var(--card-border);
+            padding: 30px;
+            text-align: center;
+            border-radius: 12px;
+            background-color: rgba(15, 23, 42, 0.4);
+            margin-bottom: 20px;
+        }
+
+        .url-input {
+            width: 100%;
+            max-width: 560px;
+            box-sizing: border-box;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            margin: 15px 0;
+            outline: none;
+        }
+        .url-input:focus { border-color: var(--accent-color); }
+
+        .url-input::placeholder { color: var(--text-muted); }
+
+        .btn-submit {
+            background: var(--accent-gradient);
+            color: white; border: none;
+            padding: 10px 24px; border-radius: 8px;
+            font-weight: 600; cursor: pointer;
+        }
+        .btn-submit:hover { opacity: 0.9; }
+
+        .error-box {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: #fca5a5;
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.95rem;
+        }
+        th, td {
+            border: 1px solid var(--card-border);
+            padding: 12px; text-align: center;
+        }
+        th { background-color: rgba(30, 41, 59, 0.8); color: #cbd5e1; }
+        tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
+        .summary-row { font-weight: bold; background-color: rgba(59, 130, 246, 0.15) !important; color: #60a5fa; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <a href="{{ url_for('projects') }}" class="back-link">← 返回项目列表</a>
+
+        <div class="window-card">
+            <div class="window-header">
+                <div class="window-dots"><div class="dot dot-red"></div><div class="dot dot-yellow"></div><div class="dot dot-green"></div></div>
+                <span class="window-title">GitHub 仓库代码统计</span>
+            </div>
+
+            <p style="color: var(--text-muted); margin-top: 0;">
+                输入一个公开的 GitHub 仓库链接，系统将自动下载源码并进行多语言代码行统计。
+            </p>
+
+            <form method="POST">
+                <div class="url-form">
+                    <p>🔗 输入 GitHub 仓库链接：</p>
+                    <input type="text" name="repo_url" class="url-input"
+                           placeholder="https://github.com/owner/repo" required>
+                    <br>
+                    <button type="submit" class="btn-submit">🚀 开始统计</button>
+                </div>
+            </form>
+
+            {% if error %}
+                <div class="error-box">⚠️ {{ error }}</div>
+            {% endif %}
+
+            {% if results is not none %}
+                <div style="margin-top: 30px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; color: #60a5fa;">📊 统计结果报告</h3>
+                        <span style="color: var(--text-muted); font-size: 0.9rem;">仓库: <strong>{{ repo }}</strong></span>
+                    </div>
+                    <p style="margin: 10px 0; color: var(--text-muted);">扫描到的文件总数: <strong style="color: var(--text-main);">{{ totals.total_scanned }}</strong></p>
+
+                    <table>
+                        <tr>
+                            <th>编程语言</th>
+                            <th>文件数</th>
+                            <th>代码行</th>
+                            <th>空行</th>
+                            <th>注释行</th>
+                        </tr>
+                        {% for lang, data in results.items() %}
+                        <tr>
+                            <td>{{ lang }}</td>
+                            <td>{{ data.files }}</td>
+                            <td>{{ data.code }}</td>
+                            <td>{{ data.blank }}</td>
+                            <td>{{ data.comment }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="summary-row">
+                            <td>SUM (总计)</td>
+                            <td>{{ totals.files }}</td>
+                            <td>{{ totals.code }}</td>
+                            <td>{{ totals.blank }}</td>
+                            <td>{{ totals.comment }}</td>
+                        </tr>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+</body>
+</html>

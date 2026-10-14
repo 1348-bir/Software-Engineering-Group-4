@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的项目 · 文敬雄</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --card-bg-hover: #243044;
+            --card-border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --accent-color: #3b82f6;
+            --accent-light: #60a5fa;
+            --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, 'PingFang SC', sans-serif;
+            background-color: var(--bg-color);
+            background-image:
+                radial-gradient(circle at 15% 10%, rgba(59,130,246,0.08), transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(139,92,246,0.08), transparent 40%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px 60px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container { width: 100%; max-width: 1080px; }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent-light);
+            text-decoration: none;
+            margin-bottom: 24px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: gap 0.2s;
+        }
+        .back-link:hover { gap: 10px; }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            background: linear-gradient(135deg, #f8fafc, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .page-desc {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            margin: 0;
+        }
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .project-item {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            text-decoration: none;
+            color: var(--text-main);
+            display: block;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-item::after {
+            content: '→';
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            color: var(--text-dim);
+            font-size: 1.2rem;
+            transition: all 0.25s;
+        }
+
+        .project-item:hover {
+            border-color: var(--accent-color);
+            background-color: var(--card-bg-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -15px rgba(59, 130, 246, 0.4);
+        }
+
+        .project-item:hover::after {
+            color: var(--accent-light);
+            transform: translateX(4px);
+        }
+
+        .project-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            box-shadow: 0 0 25px rgba(59,130,246,0.3);
+        }
+
+        .project-item h3 {
+            margin: 0 0 10px 0;
+            color: var(--text-main);
+            font-size: 1.1rem;
+        }
+
+        .project-item p {
+            margin: 0 0 14px 0;
+            color: var(--text-muted);
+            font-size: 0.86rem;
+            line-height: 1.6;
+        }
+
+        .project-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .project-tag {
+            font-size: 0.72rem;
+            padding: 3px 9px;
+            border-radius: 5px;
+            background: rgba(59,130,246,0.1);
+            color: var(--accent-light);
+            border: 1px solid rgba(59,130,246,0.2);
+        }
+
+        .project-tag.dev {
+            background: rgba(245,158,11,0.1);
+            color: #fbbf24;
+            border-color: rgba(245,158,11,0.2);
+        }
+
+        @media (max-width: 600px) {
+            .page-title { font-size: 1.5rem; }
+            .project-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="{{ url_for('index') }}" class="back-link">← 返回个人主页</a>
+
+    <div class="page-header">
+        <h1 class="page-title">我的项目</h1>
+        <p class="page-desc">点击卡片进入对应的项目界面</p>
+    </div>
+
+    <div class="project-grid">
+        <a href="{{ url_for('code_counter') }}" class="project-item">
+            <div class="project-icon">📊</div>
+            <h3>多语言代码统计工具</h3>
+            <p>支持 Python、Java、C、C++ 项目压缩包上传，精准状态机注释过滤、二进制检测及总行数统计。</p>
+            <div class="project-tags">
+                <span class="project-tag">Python</span>
+                <span class="project-tag">Flask</span>
+                <span class="project-tag">Zip</span>
+            </div>
+        </a>
+
+        <a href="{{ url_for('github_counter') }}" class="project-item">
+            <div class="project-icon">🐙</div>
+            <h3>GitHub 仓库代码统计</h3>
+            <p>输入任意公开的 GitHub 仓库链接，自动下载源码并完成多语言代码行、注释行统计。</p>
+            <div class="project-tags">
+                <span class="project-tag">GitHub API</span>
+                <span class="project-tag">代码统计</span>
+            </div>
+        </a>
+
+        <a href="{{ url_for('math_practice.practice') }}" class="project-item">
+            <div class="project-icon">🧮</div>
+            <h3>数学练习与自动改卷</h3>
+            <p>逆波兰表达式引擎、调度场算法、1 万道不重复题库、OCR 识别、自动批改与历史记录。</p>
+            <div class="project-tags">
+                <span class="project-tag">RPN</span>
+                <span class="project-tag">Shunting-yard</span>
+                <span class="project-tag">OCR</span>
+            </div>
+        </a>
+
+        <a href="{{ url_for('game_24.play') }}" class="project-item">
+            <div class="project-icon">🎮</div>
+            <h3>24 点游戏</h3>
+            <p>4 个数字用 + - × ÷ 和括号算出 24，支持多解提示、历史记录和正确率统计。</p>
+            <div class="project-tags">
+                <span class="project-tag">递归枚举</span>
+                <span class="project-tag">游戏</span>
+            </div>
+        </a>
+
+        <a href="#" class="project-item" onclick="alert('该项目正在开发中...'); return false;">
+            <div class="project-icon">✨</div>
+            <h3>自动化脚本管理中心</h3>
+            <p>用于提升日常效率的脚本集成工具集合。</p>
+            <div class="project-tags">
+                <span class="project-tag dev">开发中</span>
+            </div>
+        </a>
+    </div>
+</div>
+
+</body>
+</html>

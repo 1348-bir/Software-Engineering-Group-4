@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('title') }}</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            --green: #10b981;
+            --red: #ef4444;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0; padding: 40px 20px;
+            display: flex; justify-content: center;
+        }
+        .container { width: 100%; max-width: 800px; }
+        .back-link {
+            display: inline-block; color: #60a5fa;
+            text-decoration: none; margin-bottom: 20px; font-weight: 500;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .window-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+        }
+        .window-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px; border-bottom: 1px solid var(--card-border);
+            padding-bottom: 10px;
+        }
+        .window-title { font-size: 1.1rem; font-weight: 600; }
+        .window-dots { display: flex; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-red { background-color: #ef4444; }
+        .dot-yellow { background-color: #f59e0b; }
+        .dot-green { background-color: #10b981; }
+
+        .toolbar {
+            display: flex; gap: 10px; align-items: center;
+            flex-wrap: wrap; margin-bottom: 20px;
+        }
+        .btn {
+            background: var(--accent-gradient); color: white;
+            border: none; padding: 10px 20px; border-radius: 8px;
+            font-weight: 600; cursor: pointer; text-decoration: none;
+            display: inline-block; font-size: 0.95rem;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-secondary {
+            background: transparent; border: 1px solid var(--card-border);
+            color: var(--text-main);
+        }
+        select {
+            background: var(--card-bg); color: var(--text-main);
+            border: 1px solid var(--card-border); border-radius: 8px;
+            padding: 8px 12px; font-size: 0.95rem;
+        }
+
+        .cards {
+            display: flex; justify-content: center;
+            gap: 16px; margin: 30px 0;
+        }
+        .card-num {
+            width: 80px; height: 110px;
+            background: rgba(59,130,246,0.15);
+            border: 2px solid var(--accent-color);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.2rem; font-weight: 700;
+            color: #60a5fa;
+            font-family: 'Consolas', monospace;
+        }
+
+        .hint {
+            color: var(--text-muted); text-align: center;
+            font-size: 0.9rem; margin-bottom: 20px;
+        }
+
+        .input-row {
+            display: flex; gap: 10px; margin-bottom: 20px;
+        }
+        .expr-input {
+            flex: 1; padding: 12px 16px; font-size: 1.1rem;
+            background: rgba(15,23,42,0.8); color: var(--text-main);
+            border: 1px solid var(--card-border); border-radius: 8px;
+            font-family: 'Consolas', monospace;
+        }
+        .expr-input:focus { outline: none; border-color: var(--accent-color); }
+
+        .result-box {
+            margin-top: 20px; padding: 16px;
+            border-radius: 10px;
+            display: none;
+        }
+        .result-box.ok {
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+        .result-box.no {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .result-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+        .result-box.ok .result-title { color: var(--green); }
+        .result-box.no .result-title { color: var(--red); }
+        .result-reason { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px; }
+        .std-list { list-style: none; padding: 0; margin: 8px 0 0 0; }
+        .std-list li {
+            font-family: 'Consolas', monospace;
+            color: #60a5fa;
+            padding: 4px 0;
+            font-size: 0.95rem;
+        }
+        .std-label {
+            color: var(--text-muted); font-size: 0.85rem;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="{{ url_for('index') }}" class="back-link">← {{ t('back_home') }}</a>
+
+    <div class="window-card">
+        <div class="window-header">
+            <div class="window-dots">
+                <div class="dot dot-red"></div>
+                <div class="dot dot-yellow"></div>
+                <div class="dot dot-green"></div>
+            </div>
+            <span class="window-title">game_24.exe - {{ t('title') }}</span>
+        </div>
+
+        <div class="toolbar">
+            <button class="btn" onclick="newPuzzle()">🔄 {{ t('start') }}</button>
+            <a href="{{ url_for('game_24.history', lang=lang) }}" class="btn btn-secondary">
+                📜 {{ t('history') }}
+            </a>
+            <select onchange="switchLang(this.value)">
+                <option value="zh" {% if lang=='zh' %}selected{% endif %}>中文</option>
+                <option value="en" {% if lang=='en' %}selected{% endif %}>English</option>
+                <option value="ja" {% if lang=='ja' %}selected{% endif %}>日本語</option>
+            </select>
+        </div>
+
+        <div class="hint">{{ t('hint_use') }}</div>
+
+        <div class="cards" id="cards">
+            <div class="card-num">?</div>
+            <div class="card-num">?</div>
+            <div class="card-num">?</div>
+            <div class="card-num">?</div>
+        </div>
+
+        <div class="input-row">
+            <input class="expr-input" id="exprInput" type="text"
+                   placeholder="{{ t('placeholder') }}">
+            <button class="btn" onclick="submitAnswer()">✅ {{ t('submit') }}</button>
+        </div>
+
+        <div class="result-box" id="resultBox">
+            <div class="result-title" id="resultTitle">-</div>
+            <div class="result-reason" id="resultReason"></div>
+            <div id="stdBox" style="display:none;">
+                <div class="std-label">{{ t('std_answers') }}：</div>
+                <ul class="std-list" id="stdList"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentNums = [];
+
+    function switchLang(lang) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('lang', lang);
+        window.location.href = url.toString();
+    }
+
+    async function newPuzzle() {
+        const res = await fetch("{{ url_for('game_24.api_puzzle') }}");
+        const data = await res.json();
+        currentNums = data.nums;
+
+        const cards = document.getElementById('cards');
+        cards.innerHTML = '';
+        currentNums.forEach(n => {
+            const div = document.createElement('div');
+            div.className = 'card-num';
+            div.textContent = n;
+            cards.appendChild(div);
+        });
+
+        document.getElementById('exprInput').value = '';
+        document.getElementById('resultBox').style.display = 'none';
+        document.getElementById('exprInput').focus();
+    }
+
+    async function submitAnswer() {
+        const expr = document.getElementById('exprInput').value.trim();
+        if (!expr) {
+            alert('{{ t("invalid") }}');
+            return;
+        }
+
+        const res = await fetch("{{ url_for('game_24.api_submit') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nums: currentNums, expr: expr })
+        });
+        const data = await res.json();
+
+        const box = document.getElementById('resultBox');
+        const title = document.getElementById('resultTitle');
+        const reason = document.getElementById('resultReason');
+        const stdBox = document.getElementById('stdBox');
+        const stdList = document.getElementById('stdList');
+
+        box.style.display = 'block';
+        box.className = 'result-box ' + (data.correct ? 'ok' : 'no');
+
+        if (data.correct) {
+            title.textContent = '{{ t("answer_correct") }}';
+            reason.textContent = '';
+            stdBox.style.display = 'none';
+        } else {
+            title.textContent = '{{ t("answer_wrong") }}';
+            reason.textContent = data.reason || '';
+
+            if (data.standard_answers && data.standard_answers.length > 0) {
+                stdBox.style.display = 'block';
+                stdList.innerHTML = '';
+                data.standard_answers.forEach(a => {
+                    const li = document.createElement('li');
+                    li.textContent = a + ' = 24';
+                    stdList.appendChild(li);
+                });
+            } else {
+                stdBox.style.display = 'none';
+            }
+        }
+    }
+
+    // 回车提交
+    document.getElementById('exprInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') submitAnswer();
+    });
+
+    // 首次进入自动出题
+    newPuzzle();
+</script>
+</body>
+</html>
