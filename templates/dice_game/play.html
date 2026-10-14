@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('title') }}</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            --green: #10b981;
+            --red: #ef4444;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0; padding: 40px 20px;
+            display: flex; justify-content: center;
+        }
+        .container { width: 100%; max-width: 800px; }
+        .back-link {
+            display: inline-block; color: #60a5fa;
+            text-decoration: none; margin-bottom: 20px; font-weight: 500;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .window-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+        }
+        .window-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px; border-bottom: 1px solid var(--card-border);
+            padding-bottom: 10px;
+        }
+        .window-title { font-size: 1.1rem; font-weight: 600; }
+        .window-dots { display: flex; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-red { background-color: #ef4444; }
+        .dot-yellow { background-color: #f59e0b; }
+        .dot-green { background-color: #10b981; }
+
+        .toolbar {
+            display: flex; gap: 10px; align-items: center;
+            flex-wrap: wrap; margin-bottom: 20px;
+        }
+        .btn {
+            background: var(--accent-gradient); color: white;
+            border: none; padding: 10px 20px; border-radius: 8px;
+            font-weight: 600; cursor: pointer; text-decoration: none;
+            display: inline-block; font-size: 0.95rem;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-secondary {
+            background: transparent; border: 1px solid var(--card-border);
+            color: var(--text-main);
+        }
+        select {
+            background: var(--card-bg); color: var(--text-main);
+            border: 1px solid var(--card-border); border-radius: 8px;
+            padding: 8px 12px; font-size: 0.95rem;
+        }
+
+        .dice-area {
+            display: flex; justify-content: center; align-items: center;
+            gap: 40px; margin: 30px 0; min-height: 150px;
+        }
+        .dice {
+            width: 110px; height: 110px;
+            background: #f8fafc; border-radius: 18px;
+            box-shadow: 0 12px 25px -8px rgba(0,0,0,0.6);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 14px;
+            transition: transform 0.15s ease;
+        }
+        .dice.rolling { animation: shake 0.4s; }
+        .dice .pip {
+            background: #1e293b; border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .dice .pip.on { opacity: 1; }
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-12deg); }
+            75% { transform: rotate(12deg); }
+        }
+        .dice-sum {
+            text-align: center; margin: 0 0 20px 0;
+            font-size: 1.1rem; color: var(--text-muted);
+        }
+        .dice-sum b {
+            color: #60a5fa; font-size: 1.4rem;
+            font-family: 'Consolas', monospace;
+        }
+
+        .hint {
+            color: var(--text-muted); text-align: center;
+            font-size: 0.9rem; margin-bottom: 20px;
+        }
+
+        .result-box {
+            margin-top: 20px; padding: 16px;
+            border-radius: 10px; display: none;
+        }
+        .result-box.ok {
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+        .result-box.no {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .result-title { font-size: 1.2rem; font-weight: 700; text-align: center; }
+        .result-box.ok .result-title { color: var(--green); }
+        .result-box.no .result-title { color: var(--red); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="{{ url_for('index') }}" class="back-link">← {{ t('back_home') }}</a>
+
+    <div class="window-card">
+        <div class="window-header">
+            <div class="window-dots">
+                <div class="dot dot-red"></div>
+                <div class="dot dot-yellow"></div>
+                <div class="dot dot-green"></div>
+            </div>
+            <span class="window-title">dice_game.exe - {{ t('title') }}</span>
+        </div>
+
+        <div class="toolbar">
+            <button class="btn" onclick="roll()">🎲 {{ t('roll') }}</button>
+            <a href="{{ url_for('dice_game.history', lang=lang) }}" class="btn btn-secondary">
+                📜 {{ t('history') }}
+            </a>
+            <select onchange="switchLang(this.value)">
+                <option value="zh" {% if lang=='zh' %}selected{% endif %}>中文</option>
+                <option value="en" {% if lang=='en' %}selected{% endif %}>English</option>
+                <option value="ja" {% if lang=='ja' %}selected{% endif %}>日本語</option>
+            </select>
+        </div>
+
+        <div class="hint">{{ t('hint') }}</div>
+
+        <div class="dice-area">
+            <div class="dice" id="dice1"></div>
+            <div class="dice" id="dice2"></div>
+        </div>
+
+        <div class="dice-sum" id="diceSum" style="visibility: hidden;">
+            {{ '' }}<b id="sumValue">0</b>
+        </div>
+
+        <div class="result-box" id="resultBox">
+            <div class="result-title" id="resultTitle">-</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 骰子点数对应的圆点位置（3x3 网格，索引 0~8）
+    const PIP_LAYOUT = {
+        1: [4],
+        2: [2, 6],
+        3: [2, 4, 6],
+        4: [0, 2, 6, 8],
+        5: [0, 2, 4, 6, 8],
+        6: [0, 2, 3, 5, 6, 8],
+    };
+
+    function renderDice(diceEl, value) {
+        diceEl.innerHTML = '';
+        for (let i = 0; i < 9; i++) {
+            const pip = document.createElement('div');
+            pip.className = 'pip' + (PIP_LAYOUT[value].includes(i) ? ' on' : '');
+            diceEl.appendChild(pip);
+        }
+    }
+
+    function switchLang(lang) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('lang', lang);
+        window.location.href = url.toString();
+    }
+
+    async function roll() {
+        const btn = document.querySelector('.toolbar .btn');
+        btn.disabled = true;
+
+        const dice1 = document.getElementById('dice1');
+        const dice2 = document.getElementById('dice2');
+        dice1.classList.add('rolling');
+        dice2.classList.add('rolling');
+
+        // 播放一小段动画后取结果
+        await new Promise(r => setTimeout(r, 400));
+
+        const res = await fetch("{{ url_for('dice_game.api_roll') }}", {
+            method: 'POST'
+        });
+        const data = await res.json();
+
+        dice1.classList.remove('rolling');
+        dice2.classList.remove('rolling');
+        renderDice(dice1, data.d1);
+        renderDice(dice2, data.d2);
+
+        const sum = document.getElementById('diceSum');
+        sum.style.visibility = 'visible';
+        document.getElementById('sumValue').textContent = data.total;
+
+        const box = document.getElementById('resultBox');
+        const title = document.getElementById('resultTitle');
+        box.style.display = 'block';
+        box.className = 'result-box ' + (data.win ? 'ok' : 'no');
+        title.textContent = data.win ? '{{ t("win_msg") }}' : '{{ t("lose_msg") }}';
+
+        btn.disabled = false;
+    }
+
+    // 首次进入先展示两个骰子
+    renderDice(document.getElementById('dice1'), 1);
+    renderDice(document.getElementById('dice2'), 1);
+</script>
+</body>
+</html>

@@ -34,7 +34,7 @@ def current_user():
 def play():
     lang = get_lang(request)
     tr = translator(lang)
-    return render_template('play.html', t=tr, lang=lang)
+    return render_template('game_24/play.html', t=tr, lang=lang)
 
 
 @bp.route('/history')
@@ -44,7 +44,7 @@ def history():
     uid = current_user()
     attempts = db.recent_attempts(uid, limit=100)
     stats = db.accuracy(uid)
-    return render_template('history.html', t=tr, lang=lang,
+    return render_template('game_24/history.html', t=tr, lang=lang,
                            attempts=attempts, stats=stats)
 
 

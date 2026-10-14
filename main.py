@@ -13,6 +13,7 @@ from flask import Flask, render_template, request
 from math_practice import bp as math_bp
 from math_practice.routes import init_question_bank
 from game_24 import bp as game24_bp
+from dice_game import bp as dice_bp
 
 app = Flask(__name__)
 app.secret_key = 'change-this-secret-key'
@@ -275,6 +276,9 @@ if 'math_practice' not in app.blueprints:
 
 if 'game_24' not in app.blueprints:
     app.register_blueprint(game24_bp)
+
+if 'dice_game' not in app.blueprints:
+    app.register_blueprint(dice_bp)
 
 
 # ---------------- 启动 ----------------

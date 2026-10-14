@@ -36,7 +36,7 @@ def current_user():
 def practice():
     lang = get_lang(request)
     tr = translator(lang)
-    return render_template('practice.html', t=tr, lang=lang)
+    return render_template('math_practice/practice.html', t=tr, lang=lang)
 
 
 @bp.route('/history')
@@ -46,7 +46,7 @@ def history():
     uid = current_user()
     attempts = db.recent_attempts(uid, limit=100)
     stats = db.accuracy(uid)
-    return render_template('history.html', t=tr, lang=lang,
+    return render_template('math_practice/history.html', t=tr, lang=lang,
                            attempts=attempts, stats=stats)
 
 
@@ -54,7 +54,7 @@ def history():
 def upload():
     lang = get_lang(request)
     tr = translator(lang)
-    return render_template('upload.html', t=tr, lang=lang)
+    return render_template('math_practice/upload.html', t=tr, lang=lang)
 
 
 # ---------------- API ----------------
