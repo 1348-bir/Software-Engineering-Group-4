@@ -49,11 +49,11 @@
 <div class="container container-narrow">
 
     <nav class="topnav" aria-label="站点导航">
-        <a class="topnav-brand" href="{{ url_for('index') }}">文敬雄 · Personal Site</a>
+        <a class="topnav-brand" href="{{ url_for('index') }}">{{ team.name }} · Group Studio</a>
         <div class="topnav-links">
             <a class="topnav-link" href="{{ url_for('index') }}">首页</a>
-            <a class="topnav-link" href="{{ url_for('profile_detail') }}">详细档案</a>
-            <a class="topnav-link" href="{{ url_for('projects') }}">我的项目</a>
+            <a class="topnav-link" href="{{ url_for('profile_detail') }}">小组成员</a>
+            <a class="topnav-link" href="{{ url_for('projects') }}">小组项目</a>
         </div>
     </nav>
 

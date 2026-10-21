@@ -1,0 +1,14 @@
+{
+  "name": "软件工程第四小组",
+  "initials": "G4",
+  "role": "徐敬轩 · 文敬雄",
+  "intro": "我们把学习中的问题变成可以使用的小工具，在代码、算法与交互之间，一起探索、一起完成。",
+  "about": "这里是徐敬轩与文敬雄的小组空间。代码统计、数学练习和趣味游戏汇集在同一个网站中，从一个想法开始，在一次次尝试中把作品做好。",
+  "repository": "https://github.com/1348-bir/Software-Engineering-Group-4",
+  "skills": ["Python", "Flask", "JavaScript", "SQLite", "Git"],
+  "email": "",
+  "members": [
+    {"id": "xu-jingxuan", "name": "徐敬轩", "initials": "XJX", "role": "小组成员", "intro": "喜欢用代码解决日常的小问题，也享受把想法慢慢打磨成作品的过程。", "skills": ["Python", "Flask", "JavaScript", "HTML / CSS"], "focus": "个人空间、代码统计与交互体验"},
+    {"id": "wen-jingxiong", "name": "文敬雄", "initials": "WJX", "role": "小组成员", "intro": "热爱构建 Web 应用与开发工具，关注 Python / Flask、前端交互设计，以及算法与自动化的结合。", "skills": ["Python", "Flask", "SQLite", "算法与自动化"], "focus": "数学练习、24 点与骰子游戏"}
+  ]
+}

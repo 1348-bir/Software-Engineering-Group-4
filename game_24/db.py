@@ -1,6 +1,7 @@
 # game_24/db.py
 import os
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'game24.db')
@@ -12,10 +13,14 @@ class Game24DB:
         self.path = path
         self._init()
 
+    @contextmanager
     def _conn(self):
         conn = sqlite3.connect(self.path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def _init(self):
         with self._conn() as conn:

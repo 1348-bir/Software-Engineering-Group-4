@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>详细档案 · 文敬雄</title>
+    <title>小组成员 · 文敬雄</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
         .profile-head {
@@ -94,11 +94,11 @@
 <div class="container-narrow">
 
     <nav class="topnav" aria-label="站点导航">
-        <a class="topnav-brand" href="{{ url_for('index') }}">文敬雄 · Personal Site</a>
+        <a class="topnav-brand" href="{{ url_for('index') }}">{{ team.name }} · Group Studio</a>
         <div class="topnav-links">
             <a class="topnav-link" href="{{ url_for('index') }}">首页</a>
-            <a class="topnav-link" href="{{ url_for('profile_detail') }}" aria-current="page">详细档案</a>
-            <a class="topnav-link" href="{{ url_for('projects') }}">我的项目</a>
+            <a class="topnav-link" href="{{ url_for('profile_detail') }}" aria-current="page">小组成员</a>
+            <a class="topnav-link" href="{{ url_for('projects') }}">小组项目</a>
         </div>
     </nav>
 
@@ -116,7 +116,7 @@
 
     <div class="window-card">
         <div class="window-header">
-            <span class="window-title">详细档案</span>
+            <span class="window-title">小组成员</span>
         </div>
 
         <div class="profile-head">

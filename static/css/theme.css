@@ -1008,3 +1008,6 @@ tfoot td {
     }
     .btn:hover, .stat-card:hover, .window-card:hover { transform: none; }
 }
+/* Group integration: retain original components with the shared purple palette. */
+:root{--bg:#f5f3fa;--bg-soft:#faf9fd;--bg-deep:#e7e0f5;--text:#28243b;--text-muted:#7d728e;--blue-700:#6550bb;--blue-600:#7862cf;--blue-500:#937ce0;--blue-400:#b09ae8;--blue-300:#d0c0f3;--blue-100:#eae3fa;--blue-50:#f5f1fd}
+@media(max-width:720px){.topnav{flex-wrap:wrap;justify-content:center;border-radius:18px}.topnav-brand{white-space:normal;text-align:center;font-size:12px}.topnav-links{width:100%;justify-content:center}.topnav-link{padding:6px 10px}}

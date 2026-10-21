@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="徐敬轩、文敬雄的小组主页：代码统计、定制数学练习、24点和骰子游戏">
+  <title>{% block title %}小组主页{% endblock %} · {{ profile.name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='team.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="brand-icon">G4</span> 小组空间<span class="brand-dot"></span></a>
+    <div class="sidebar-caption">MY WORKSPACE</div>
+    <nav aria-label="主导航">
+      <a class="{{ 'active' if request.path == '/' }}" href="/"><span>⌂</span>小组主页</a>
+      <a class="{{ 'active' if request.path.startswith('/members') }}" href="/members"><span>♧</span>小组成员</a>
+      <a class="{{ 'active' if request.path == '/projects' }}" href="/projects"><span>▦</span>小组项目</a>
+      <a class="{{ 'active' if request.path == '/code-stats' }}" href="/code-stats"><span>≡</span>代码统计</a>
+      <a class="{{ 'active' if request.path.startswith(('/math', '/arithmetic', '/game24')) }}" href="/math"><span>✧</span>趣味数学</a>
+      <a class="{{ 'active' if request.path == '/history' }}" href="/history"><span>◷</span>练习记录</a>
+    </nav>
+    <div class="sidebar-note"><span class="status-dot"></span> 保持好奇，持续创造<p>从一行代码，到一个新想法。</p></div>
+    <div class="sidebar-profile"><span class="mini-avatar">{{ profile.initials }}</span><div>{{ profile.name }}<small>{{ profile.role }}</small></div></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><span>第四小组 <span class="crumb">/ {% block crumb %}概览{% endblock %}</span></span><a class="top-badge" href="{{ team.repository }}" target="_blank" rel="noopener noreferrer">GROUP 04 / GITHUB ↗</a></header>
+    <main>{% block content %}{% endblock %}</main>
+    {% block footer %}<footer><span>徐敬轩 · 文敬雄 / 一起探索，一起创造。</span><span>GROUP STUDIO / 2026</span></footer>{% endblock %}
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -33,7 +33,6 @@ Thumbs.db
 
 # 测试数据 / 第三方目录
 test/
-tests/
 *.zip
 
 # 用户上传的头像（个人文件，不需要上传）
@@ -45,3 +44,9 @@ static/uploads/*
 
 # 本地 AI 工作文档（计划/规格，非项目代码）
 .trae/
+
+# Integrated site's runtime and preview artifacts
+history.db
+*.db-wal
+*.db-shm
+previews/
