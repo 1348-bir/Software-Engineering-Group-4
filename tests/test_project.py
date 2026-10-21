@@ -1,15 +1,9 @@
 import io
-import sqlite3
-import tempfile
 import unittest
 from unittest.mock import patch
 import zipfile
-from contextlib import closing
-from pathlib import Path
 from werkzeug.datastructures import FileStorage
 from code_stats import count_source, count_stream, analyze_uploads, MAX_FILE, MAX_TOTAL, MAX_UPLOAD, MAX_REQUEST
-from safe_math import evaluate
-import math_app
 from app import app
 
 
@@ -133,25 +127,13 @@ class SourceCounts(unittest.TestCase):
 
 class WebsiteFlows(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.old_database = math_app.DATABASE
-        math_app.DATABASE = str(Path(self.temp.name) / 'test.db')
-        math_app.init_db()
         app.config.update(TESTING=True, SECRET_KEY='test-only')
         self.client = app.test_client()
-
-    def tearDown(self):
-        math_app.DATABASE = self.old_database
-        self.temp.cleanup()
-
-    def history_count(self):
-        with closing(sqlite3.connect(math_app.DATABASE)) as conn:
-            return conn.execute('SELECT COUNT(*) FROM history').fetchone()[0]
 
     def test_all_pages(self):
         for page in ['/', '/code-stats', '/math', '/arithmetic', '/game24', '/history', '/game24/solution', '/static/style.css', '/static/stats.js']:
             with self.subTest(page=page):
-                with self.client.get(page) as response:
+                with self.client.get(page, follow_redirects=True) as response:
                     self.assertEqual(response.status_code, 200)
 
     def test_upload_and_empty(self):
@@ -182,51 +164,24 @@ class WebsiteFlows(unittest.TestCase):
         finally:
             app.config['MAX_CONTENT_LENGTH'] = previous
 
-    def test_arithmetic_full_score_and_duplicate(self):
-        self.client.get('/arithmetic')
-        with self.client.session_transaction() as session:
-            data = {f'answer_{i}': str(q['answer']) for i, q in enumerate(session['exam_data'])}
-        r = self.client.post('/arithmetic/submit', data=data)
-        self.assertEqual(r.status_code, 200)
-        self.assertIn(b'100', r.data)
-        self.assertEqual(self.history_count(), 1)
-        self.assertEqual(self.client.post('/arithmetic/submit', data=data).status_code, 302)
-        self.assertEqual(self.history_count(), 1)
+    def test_legacy_practice_links_redirect(self):
+        for source, target in [('/arithmetic', '/math/'), ('/game24', '/game24/'), ('/game24/solution', '/game24/')]:
+            with self.subTest(source=source):
+                response = self.client.get(source)
+                self.assertEqual(response.status_code, 303)
+                self.assertEqual(response.location, target)
+        for source, target in [('/arithmetic/submit', '/math/'), ('/game24/check', '/game24/')]:
+            response = self.client.post(source)
+            self.assertEqual(response.status_code, 303)
+            self.assertEqual(response.location, target)
 
-    def seed_game(self):
-        with self.client.session_transaction() as session:
-            session['game24_nums'] = [3, 3, 5, 1]
-            session['game24_finished'] = False
-
-    def test_game_correct_duplicate_and_solution(self):
-        self.seed_game()
-        for _ in range(2):
-            r = self.client.post('/game24/check', data={'expression': '(3+3)*(5-1)'})
-            self.assertEqual(r.status_code, 200)
-            self.assertIn('答案正确'.encode(), r.data)
-        self.assertEqual(self.history_count(), 1)
-        self.seed_game()
-        self.client.get('/game24/solution')
-        self.client.post('/game24/check', data={'expression': '(3+3)*(5-1)'})
-        self.assertEqual(self.history_count(), 1)
-
-    def test_game_wrong_expression(self):
-        self.seed_game()
-        for expression in ['3+3+5+1', '3**3+5+1', '3//3+5+1', '24', '__import__("os")']:
-            self.client.post('/game24/check', data={'expression': expression})
-        self.assertEqual(self.history_count(), 0)
-
-
-class SafeExpressions(unittest.TestCase):
-    def test_arithmetic(self):
-        self.assertEqual(evaluate('(3+3)*(5-1)'), 24)
-        self.assertEqual(evaluate('10-3*2'), 4)
-        self.assertEqual(evaluate('8/2'), 4)
-
-    def test_rejected_expressions(self):
-        for expression in ['2**100', '8//2', '__import__("os")', 'True+2', '4.5*2', '1/0']:
-            with self.subTest(expression=expression), self.assertRaises((ValueError, ZeroDivisionError)):
-                evaluate(expression)
+    def test_single_home_route_and_project_entries(self):
+        self.assertEqual(sum(rule.rule == '/' for rule in app.url_map.iter_rules()), 1)
+        for path in ('/math', '/projects'):
+            page = self.client.get(path).get_data(as_text=True)
+            self.assertNotIn('快速挑战', page)
+            self.assertNotIn('href="/arithmetic"', page)
+            self.assertEqual(page.count('href="/game24/"'), 1)
 
 
 if __name__ == '__main__':

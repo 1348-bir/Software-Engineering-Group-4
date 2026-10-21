@@ -6,93 +6,40 @@
 """
 
 import random
-import itertools
-
-OPS = ['+', '-', '×', '÷']
-
-
-# ---------------- 表达式求值（用调度场算法） ----------------
-
-PRECEDENCE = {'+': 1, '-': 1, '×': 2, '÷': 2}
+import re
+from math_practice.engine import solve
 
 
-def tokenize(expr):
-    tokens = []
-    i = 0
-    while i < len(expr):
-        ch = expr[i]
-        if ch.isspace():
-            i += 1
-            continue
-        if ch.isdigit():
-            num = ''
-            while i < len(expr) and expr[i].isdigit():
-                num += expr[i]
-                i += 1
-            tokens.append(num)
-            continue
-        if ch in '+-×÷()':
-            tokens.append(ch)
-            i += 1
-            continue
-        raise ValueError(f"非法字符: {ch}")
-    return tokens
 
-
-def to_rpn(tokens):
-    output, stack = [], []
-    for tok in tokens:
-        if tok.isdigit():
-            output.append(tok)
-        elif tok == '(':
-            stack.append(tok)
-        elif tok == ')':
-            while stack and stack[-1] != '(':
-                output.append(stack.pop())
-            if not stack:
-                raise ValueError("括号不匹配")
-            stack.pop()
-        else:
-            while (stack and stack[-1] != '('
-                   and PRECEDENCE[stack[-1]] >= PRECEDENCE[tok]):
-                output.append(stack.pop())
-            stack.append(tok)
-    while stack:
-        if stack[-1] == '(':
-            raise ValueError("括号不匹配")
-        output.append(stack.pop())
-    return output
-
-
-def eval_rpn(rpn):
-    stack = []
-    for tok in rpn:
-        if tok.isdigit():
-            stack.append(int(tok))
-        else:
-            b = stack.pop()
-            a = stack.pop()
-            if tok == '+':
-                stack.append(a + b)
-            elif tok == '-':
-                stack.append(a - b)
-            elif tok == '×':
-                stack.append(a * b)
-            elif tok == '÷':
-                if b == 0:
-                    raise ZeroDivisionError
-                stack.append(a / b)
-    if len(stack) != 1:
-        raise ValueError("表达式非法")
-    return stack[0]
-
-
+# 复用数学练习的精确 Fraction 求值；24 点只开放四则运算。
 def evaluate(expr):
-    """返回 (是否合法, 结果)"""
-    try:
-        return True, eval_rpn(to_rpn(tokenize(expr)))
-    except Exception:
+    if not isinstance(expr, str) or len(expr) > 512:
         return False, None
+    expr = expr.replace('*', '×').replace('/', '÷')
+    if not re.fullmatch(r'[0-9\s+×÷()\-]+', expr):
+        return False, None
+    tokens = re.findall(r'[0-9]+|[^\s]', expr)
+    expect_operand, depth = True, 0
+    for token in tokens:
+        if token.isdigit():
+            if not expect_operand:
+                return False, None
+            expect_operand = False
+        elif token == '(':
+            if not expect_operand:
+                return False, None
+            depth += 1
+        elif token == ')':
+            if expect_operand or depth == 0:
+                return False, None
+            depth -= 1
+        else:
+            if expect_operand:
+                return False, None
+            expect_operand = True
+    if expect_operand or depth:
+        return False, None
+    return solve(expr)
 
 
 # ---------------- 求解所有 24 点解 ----------------

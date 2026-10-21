@@ -31,8 +31,6 @@ def member_avatar(member_id):
 
 
 def register_group_routes(app):
-    app.add_url_rule('/', endpoint='index', view_func=app.view_functions['home'])
-
     @app.get('/members')
     def members():
         return render_template('members.html')
