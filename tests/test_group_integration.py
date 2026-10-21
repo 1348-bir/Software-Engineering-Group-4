@@ -84,7 +84,9 @@ class GroupIntegration(unittest.TestCase):
         self.assertEqual(len(generate_batch(8, cfg)), 8)
 
     def test_question_bank_generation(self):
-        response = self.client.post('/math/api/generate', json={'count': 5, 'batch': 5})
+        with patch.dict(app.config, STUDIO_ADMIN_TOKEN='integration-admin'):
+            response = self.client.post('/math/api/generate', json={'count': 5, 'batch': 5},
+                headers={'Authorization': 'Bearer integration-admin'})
         self.assertEqual(response.status_code, 200)
         self.assertGreaterEqual(response.json['total_in_db'], 1)
         self.assertEqual(len(self.client.get('/math/api/questions?count=3').json['questions']), 3)
@@ -113,16 +115,22 @@ class GroupIntegration(unittest.TestCase):
         self.assertIn('error', response.json)
 
     def test_member_avatar_isolation(self):
+        admin = patch.dict(app.config, STUDIO_ADMIN_TOKEN='integration-admin')
+        admin.start()
+        self.addCleanup(admin.stop)
+        with self.client.session_transaction() as session:
+            session['csrf_token'] = 'integration-csrf'
+        credentials = {'admin_token': 'integration-admin', 'csrf_token': 'integration-csrf'}
         image = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF9kAAAAASUVORK5CYII=')
         for slug in ('xu-jingxuan', 'wen-jingxiong'):
-            response = self.client.post('/avatar/upload', data={'member_id': slug, 'avatar': (io.BytesIO(image), 'a.png')})
+            response = self.client.post('/avatar/upload', data={**credentials, 'member_id': slug, 'avatar': (io.BytesIO(image), 'a.png')})
             self.assertIn('avatar_ok=1', response.location)
         self.assertEqual(len(list(group_site.AVATAR_DIR.glob('xu-jingxuan-*'))), 1)
         self.assertEqual(len(list(group_site.AVATAR_DIR.glob('wen-jingxiong-*'))), 1)
-        self.client.post('/avatar/upload', data={'member_id': 'xu-jingxuan', 'avatar': (io.BytesIO(image), 'new.png')})
+        self.client.post('/avatar/upload', data={**credentials, 'member_id': 'xu-jingxuan', 'avatar': (io.BytesIO(image), 'new.png')})
         self.assertEqual(len(list(group_site.AVATAR_DIR.glob('xu-jingxuan-*'))), 1)
         self.assertEqual(len(list(group_site.AVATAR_DIR.glob('wen-jingxiong-*'))), 1)
-        response = self.client.post('/avatar/upload', data={'member_id': 'xu-jingxuan', 'avatar': (io.BytesIO(b'not image'), 'a.png')})
+        response = self.client.post('/avatar/upload', data={**credentials, 'member_id': 'xu-jingxuan', 'avatar': (io.BytesIO(b'not image'), 'a.png')})
         self.assertIn('avatar_error=format', response.location)
 
 

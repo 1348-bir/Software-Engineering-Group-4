@@ -130,11 +130,15 @@
                 </div>
                 <form class="avatar-upload" method="POST" action="{{ url_for('upload_avatar') }}"
                       enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <label for="profileAdminToken">管理员密钥</label>
+                    <input id="profileAdminToken" type="password" name="admin_token" autocomplete="off" required>
                     <label class="btn btn-sm" for="profileAvatarInput">
                         {% if avatar_url %}更换头像{% else %}上传头像{% endif %}
                     </label>
                     <input id="profileAvatarInput" type="file" name="avatar" accept="image/*"
-                           onchange="this.form.submit()">
+                            required>
+                    <button type="submit" class="btn btn-sm">更新头像</button>
                 </form>
             </div>
 

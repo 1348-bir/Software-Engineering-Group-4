@@ -10,6 +10,7 @@
 
 import random
 import re
+import time
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -25,6 +26,23 @@ RIGHT_ASSOC = {'^', 'u-'}
 OPS = ['+', '-', '×', '÷']
 
 _TOKEN_NUM = re.compile(r'^\d+(/\d+)?$')
+MAX_EXPRESSION = 512
+MAX_NUMBER_DIGITS = 16
+MAX_VALUE_BITS = 256
+MAX_EXPONENT = 12
+
+
+def bounded_value(value):
+    if (value.numerator.bit_length() > MAX_VALUE_BITS or
+            value.denominator.bit_length() > MAX_VALUE_BITS):
+        raise ValueError('计算结果过大')
+    return value
+
+
+def bounded_power(base, exponent):
+    if exponent.denominator != 1 or abs(exponent) > MAX_EXPONENT:
+        raise ValueError('指数必须为 -12 到 12 的整数')
+    return bounded_value(base ** int(exponent))
 
 
 def _as_bool(v):
@@ -72,7 +90,7 @@ class QuestionConfig:
     def from_dict(cls, d):
         cfg = cls()
         cfg.count = max(1, min(int(d.get('count', d.get('n', cfg.count))), 200))
-        cfg.num_range = max(1, int(d.get('num_range', cfg.num_range)))
+        cfg.num_range = max(1, min(int(d.get('num_range', cfg.num_range)), 1000))
         cfg.allow_mult_div = _as_bool(d.get('allow_mult_div', cfg.allow_mult_div))
         cfg.allow_parentheses = _as_bool(d.get('allow_parentheses', cfg.allow_parentheses))
         cfg.allow_negative = _as_bool(d.get('allow_negative', cfg.allow_negative))
@@ -96,6 +114,8 @@ class QuestionConfig:
 # ---------------- 表达式层（支持分数 token） ----------------
 
 def tokenize(expr):
+    if not isinstance(expr, str) or len(expr) > MAX_EXPRESSION:
+        raise ValueError('算式过长或格式错误')
     tokens = []
     i = 0
     while i < len(expr):
@@ -131,6 +151,8 @@ def _is_num(tok):
 
 
 def _parse_num(tok):
+    if any(len(part) > MAX_NUMBER_DIGITS for part in tok.split('/')):
+        raise ValueError('运算数过长')
     if '/' in tok:
         n, d = tok.split('/', 1)
         return Fraction(int(n), int(d))
@@ -196,7 +218,8 @@ def eval_rpn(rpn):
                     raise ZeroDivisionError
                 stack.append(a / b)
             elif tok == '^':
-                stack.append(a ** b)
+                stack.append(bounded_power(a, b))
+            bounded_value(stack[-1])
     if len(stack) != 1:
         raise ValueError("表达式非法")
     return stack[0]
@@ -228,7 +251,10 @@ def evaluate(expr, cfg=None):
     stack = []
     for tok in rpn:
         if _is_num(tok):
-            v = _parse_num(tok)
+            try:
+                v = _parse_num(tok)
+            except (ValueError, ZeroDivisionError):
+                return False, None
             if abs(v) > cfg.num_range:
                 return False, None
             stack.append(v)
@@ -259,12 +285,18 @@ def evaluate(expr, cfg=None):
             elif tok == '^':
                 if b.denominator != 1 or b < 0:
                     return False, None
-                v = a ** int(b)
+                try:
+                    v = bounded_power(a, b)
+                except (ValueError, ZeroDivisionError):
+                    return False, None
             else:
                 return False, None
             if not cfg.allow_negative and v < 0:
                 return False, None
-            stack.append(v)
+            try:
+                stack.append(bounded_value(v))
+            except ValueError:
+                return False, None
 
     if len(stack) != 1:
         return False, None
@@ -357,7 +389,7 @@ def make_expr(cfg):
     return f"{a} {op1} {b} {op2} {c}"
 
 
-def generate_batch(count, cfg=None, seed=None, max_zero=5):
+def generate_batch(count, cfg=None, seed=None, max_zero=5, deadline=None):
     """
     生成 count 道不重复且合法的题。
     返回 [(expr, answer_text, answer_Fraction), ...]
@@ -366,6 +398,9 @@ def generate_batch(count, cfg=None, seed=None, max_zero=5):
     if seed is not None:
         random.seed(seed)
     cfg = cfg or QuestionConfig()
+    # Public practice/print callers also need a budget for scarce configurations.
+    if deadline is None:
+        deadline = time.monotonic() + 2
 
     result = []
     seen = set()
@@ -374,6 +409,8 @@ def generate_batch(count, cfg=None, seed=None, max_zero=5):
     limit = max(1000, count * 500)
 
     while len(result) < count and guard < limit:
+        if time.monotonic() >= deadline:
+            break
         guard += 1
         expr = make_expr(cfg)
         if expr in seen:
@@ -395,16 +432,23 @@ def generate_batch(count, cfg=None, seed=None, max_zero=5):
     return result
 
 
-def generate_to_db(db, count=10000, batch=500, cfg=None, seed=None):
+def generate_to_db(db, count=100, batch=100, cfg=None, seed=None):
     """分批生成并写入数据库，避免一次性占内存。仅入库整数且答案在 0-100 的题。"""
+    if type(count) is not int or not 1 <= count <= 1000:
+        raise ValueError('每次只能生成 1 到 1000 题')
+    if type(batch) is not int or not 1 <= batch <= 200:
+        raise ValueError('批次大小必须为 1 到 200')
     total = 0
     guard = 0
     cfg = cfg or QuestionConfig(num_range=100)
-    while total < count and guard < count * 100:
+    deadline = time.monotonic() + 5
+    while total < count and guard < 20 and time.monotonic() < deadline:
         guard += 1
         n = min(batch, count - total)
-        qs = generate_batch(n, cfg=cfg, seed=seed)
+        qs = generate_batch(n, cfg=cfg, seed=seed, deadline=deadline)
         for expr, ans_text, ans in qs:
+            if time.monotonic() >= deadline:
+                break
             if ans.denominator != 1:
                 continue
             v = int(ans.numerator)
@@ -421,6 +465,12 @@ def generate_to_db(db, count=10000, batch=500, cfg=None, seed=None):
 def parse_user_answer(text):
     """把用户输入解析为 Fraction；支持 整数 / 小数 / 分数 / 带分数。解析失败返回 None。"""
     s = str(text).strip()
+    if len(s) > 128 or not re.fullmatch(r'[0-9eE+./\-\s]+', s):
+        return None
+    # Fraction accepts scientific notation: bound its exponent before parsing.
+    for exponent in re.findall(r'[eE]([+-]?\d+)', s):
+        if len(exponent.lstrip('+-')) > 3 or abs(int(exponent)) > 100:
+            return None
     if not s:
         return None
     if ' ' in s:

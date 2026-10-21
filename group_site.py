@@ -6,6 +6,7 @@ from uuid import uuid4
 from flask import abort, redirect, render_template, request, url_for
 from code_stats import analyze_uploads
 from url_source import analyze_url
+from admin_security import csrf_token, require_admin, require_csrf
 
 ROOT = Path(__file__).resolve().parent
 AVATAR_DIR = ROOT / 'static' / 'uploads'
@@ -46,15 +47,17 @@ def register_group_routes(app):
         if member is None:
             abort(404)
         member['avatar_url'] = member_avatar(member_id)
-        return render_template('member_detail.html', member=member)
+        return render_template('member_detail.html', member=member, csrf_token=csrf_token())
 
     @app.get('/members/wen-jingxiong/original-profile')
     def original_wen_profile():
-        return render_template('profile.html', avatar_url=member_avatar('wen-jingxiong'))
+        return render_template('profile.html', avatar_url=member_avatar('wen-jingxiong'), csrf_token=csrf_token())
 
     @app.post('/avatar/upload')
     def upload_avatar():
         request.max_content_length = AVATAR_LIMIT + 64 * 1024
+        require_admin(request.form.get('admin_token', ''))
+        require_csrf()
         member_id = request.form.get('member_id', 'wen-jingxiong')
         if member_id not in {m['id'] for m in load_team()['members']}:
             abort(400)

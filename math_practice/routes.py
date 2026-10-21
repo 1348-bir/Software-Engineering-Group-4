@@ -9,6 +9,7 @@ from .engine import QuestionConfig, generate_batch, generate_to_db, grade_batch,
 from .db import MathDB
 from .i18n import get_lang, translator
 from . import ocr
+from admin_security import require_admin
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -110,7 +111,17 @@ def api_questions():
 
 @bp.route('/api/submit', methods=['POST'])
 def api_submit():
-    data = request.get_json()
+    request.max_content_length = 128 * 1024
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('items'), list):
+        return jsonify(error='提交格式错误'), 400
+    if len(data['items']) > 200 or not isinstance(data.get('source', 'manual'), str) or len(data.get('source', 'manual')) > 128:
+        return jsonify(error='每次最多提交 200 题'), 400
+    for item in data['items']:
+        if (not isinstance(item, dict) or not isinstance(item.get('expr'), str)
+                or len(item['expr']) > 512 or not isinstance(item.get('answer'), (str, int, float))
+                or len(str(item['answer'])) > 128):
+            return jsonify(error='算式或答案格式错误、长度超限'), 400
     items = [(it['expr'], it['answer']) for it in data.get('items', [])]
     results = grade_batch(items)
     uid = current_user()
@@ -151,10 +162,18 @@ def api_history():
 
 @bp.route('/api/generate', methods=['POST'])
 def api_generate():
-    data = request.get_json() or {}
-    count = int(data.get('count', 10000))
-    batch = int(data.get('batch', 500))
-    cfg = QuestionConfig.from_dict(data)
+    require_admin()
+    request.max_content_length = 16 * 1024
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error='参数格式错误'), 400
+    count, batch = data.get('count', 100), data.get('batch', 100)
+    if type(count) is not int or not 1 <= count <= 1000 or type(batch) is not int or not 1 <= batch <= 200:
+        return jsonify(error='题数必须为 1 到 1000，批次大小必须为 1 到 200'), 400
+    try:
+        cfg = QuestionConfig.from_dict(data)
+    except (ValueError, TypeError, OverflowError):
+        return jsonify(error='出题配置错误'), 400
     total = generate_to_db(db, count=count, batch=batch, cfg=cfg)
     return jsonify({'generated': total, 'total_in_db': db.question_count()})
 
@@ -187,7 +206,7 @@ def api_ocr():
 
 # ---------------- 启动时初始化题库 ----------------
 
-def init_question_bank(count=10000, batch=500):
+def init_question_bank(count=1000, batch=200):
     """如果题库为空，自动生成"""
     if db.question_count() == 0:
         print(f"题库为空，开始生成 {count} 道题...")

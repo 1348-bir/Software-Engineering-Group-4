@@ -124,6 +124,7 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='history.js') }}"></script>
 <script>
     function switchLang(lang) {
         const url = new URL(window.location.href);
@@ -147,20 +148,12 @@
                 }
                 data.attempts.forEach(a => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${a.id}</td>
-                        <td style="font-family: Consolas, monospace;">${a.nums}</td>
-                        <td style="font-family: Consolas, monospace;">${a.user_expr}</td>
-                        <td class="${a.is_correct ? 'ok' : 'no'}">
-                            ${a.is_correct ? '✓' : '✗'}
-                        </td>
-                        <td style="color: var(--text-muted); font-size: 0.85rem;">
-                            ${a.reason || '-'}
-                        </td>
-                        <td style="color: var(--text-muted); font-size: 0.85rem;">
-                            ${a.created_at}
-                        </td>
-                    `;
+                    appendHistoryCell(tr, a.id);
+                    appendHistoryCell(tr, a.nums);
+                    appendHistoryCell(tr, a.user_expr);
+                    appendHistoryCell(tr, a.is_correct ? '✓' : '✗', a.is_correct ? 'ok' : 'no');
+                    appendHistoryCell(tr, a.reason || '-');
+                    appendHistoryCell(tr, a.created_at);
                     tbody.insertBefore(tr, tbody.firstChild);
                 });
                 latestId = data.latest_id;

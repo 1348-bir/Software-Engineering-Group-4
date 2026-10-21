@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent
 app.config.update(MAX_CONTENT_LENGTH=MAX_REQUEST, MAX_FORM_PARTS=1200,
                   SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
+app.config['STUDIO_ADMIN_TOKEN'] = os.environ.get('STUDIO_ADMIN_TOKEN', '')
 
 
 @app.context_processor
