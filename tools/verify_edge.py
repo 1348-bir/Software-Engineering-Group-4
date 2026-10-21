@@ -152,7 +152,8 @@ with tempfile.TemporaryDirectory(prefix='personal-studio-browser-') as temporary
         dev.call('Runtime.enable')
         dev.call('Emulation.setDeviceMetricsOverride', {'width': 1440, 'height': 1050, 'deviceScaleFactor': 1, 'mobile': False})
         dev.goto('/')
-        assert dev.js('document.querySelector(".personal-tagline").textContent.includes("徐敬轩") && document.querySelector(".personal-tagline").textContent.includes("文敬雄")')
+        assert dev.js('document.querySelector(".personal-tagline") === null')
+        assert dev.js('document.getElementById("members").textContent.includes("徐敬轩") && document.getElementById("members").textContent.includes("文敬雄")')
         assert dev.js('document.querySelectorAll("#members .member-card").length') == 2
         assert dev.js('document.querySelector(".identity-card").getBoundingClientRect().height > 300')
         assert dev.js('Array.from(document.querySelectorAll("#tools a"), a => a.getAttribute("href")).includes("/code-stats")')

@@ -1,0 +1,136 @@
+/* Group homepage: a quieter introduction and clearer visual hierarchy. */
+.home-page {
+  --paper: #f8f8fc;
+  --home-ink: #24253b;
+  --home-muted: #747486;
+  background: radial-gradient(ellipse at 90% 4%, #eeeafa 0, transparent 35%), var(--paper);
+}
+.home-page .personal-nav { height: 96px; border-bottom-color: #e6e4ef; }
+.home-page .personal-brand-mark {
+  border: 0; border-radius: 13px; color: #7760c2;
+  background: linear-gradient(140deg, #e9e1ff, #f6f3ff);
+  box-shadow: inset 0 0 0 1px #ded5f3;
+}
+.home-page .personal-brand strong { letter-spacing: 1px; }
+.home-page .personal-links a { transition: color .2s; }
+.home-page .personal-links .nav-cta { background: #fff9; border-color: #ded8ef; }
+.home-page .personal-hero {
+  position: relative; isolation: isolate; overflow: hidden;
+  margin: 33px 0 29px; padding: 46px 43px; gap: 38px;
+  border: 1px solid #e4def3; border-radius: 28px;
+  background: linear-gradient(112deg, #fff 4%, #fcfbff 51%, #ece7fa 100%);
+  box-shadow: 0 16px 45px -35px #7a5ea577;
+}
+.home-page .personal-hero::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: linear-gradient(#a894cf18 1px, transparent 1px), linear-gradient(90deg, #a894cf18 1px, transparent 1px);
+  background-size: 34px 34px; mask-image: linear-gradient(90deg, transparent 38%, #000 100%);
+}
+.home-page .hero-kicker {
+  display: inline-flex; padding: 8px 11px; border: 1px solid #ece7f7;
+  border-radius: 30px; background: #faf8ff; color: #9281b1;
+  font-size: 9px; letter-spacing: 1.3px; gap: 9px;
+}
+.home-page .hero-kicker i { width: 5px; height: 5px; box-shadow: 0 0 0 3px #eae2f7; }
+.home-page .personal-hero h1 { margin: 24px 0 22px; line-height: 1.25; font-size: clamp(42px, 4.5vw, 64px); letter-spacing: -2px; }
+.home-page .personal-name { color: #7960ce; }
+.home-page .personal-name::after { background: #e7ddfa; height: 11px; }
+.home-page .greeting-star { font-size: 37px; margin: 17px 0 0 12px; color: #b8a0c4; }
+.home-page .personal-intro { font-size: 13px; line-height: 2.1; color: #858096; max-width: 405px; }
+.home-page .hero-actions { gap: 22px; margin-top: 26px; }
+.home-page .home-button { background: #7862ce; box-shadow: 0 7px 16px #7862ce22; }
+.home-page .home-button:hover { background: #6650b8; box-shadow: 0 10px 22px #7862ce33; }
+.home-page .hero-signature { font-size: 8px; letter-spacing: .8px; margin-top: 29px; color: #aaa1bb; }
+.home-page .identity-scene { padding: 13px 7px 18px; }
+.home-page .identity-card {
+  background: linear-gradient(145deg, #2c2b47, #38334f); border: 1px solid #ffffff21;
+  transform: rotate(2deg); border-radius: 23px; min-height: 385px;
+  box-shadow: 0 23px 32px -23px #302246aa;
+}
+.home-page .identity-orb { top: 79px; width: 194px; height: 194px; margin-left: -97px; }
+.home-page .identity-ring { top: 131px; width: 265px; margin-left: -132px; }
+.home-page .identity-ring.second { top: 133px; width: 242px; margin-left: -121px; }
+.home-page .identity-top { font-size: 8px; letter-spacing: 1.6px; }
+.home-page .identity-bottom strong { font-size: 29px; }
+.home-page .identity-bottom small { font-size: 11px; color: #c3b5dd; }
+.home-page .identity-edge-note { font-size: 7px; letter-spacing: 1.5px; color: #aa98c1; }
+.home-page .identity-sticker {
+  background: #fff; border: 1px solid #e7e0f2; color: #9484a8;
+  border-radius: 30px; font-size: 9px; padding: 10px 15px;
+  right: -6px; bottom: 5px; transform: rotate(-4deg);
+  box-shadow: 0 6px 16px #64548014;
+}
+.home-page .identity-sticker span { color: #a88dc5; }
+.home-page .process-strip { background: #fff9; border: 1px solid #e6e2ef; border-radius: 14px; padding: 21px 25px; margin-bottom: 43px; }
+.home-page .process-item strong { color: #716880; }
+.home-page .process-item + .process-item { border-color: #e9e4ef; padding-left: 24px; }
+.home-page .home-section-header { margin-bottom: 22px; }
+.home-page .home-section-header h2 { font-size: 26px; }
+.home-page .home-eyebrow { color: #a28db8; }
+.home-page .member-card { border-color: #e5deee; background: #fff; box-shadow: 0 8px 26px -19px #71578c40; }
+.home-page .member-card:nth-child(2) { background: linear-gradient(135deg, #fffcf8, #f4f0ea); border-color: #e9e1d6; }
+.home-page .member-card h3 { margin-top: 20px; }
+.home-page .member-card p { color: #8b8098; }
+.home-page .member-link { color: #89719f; }
+.home-page .project { border-radius: 18px; }
+.home-page .project-code { background: linear-gradient(135deg, #f0eafb, #eae5f7); }
+.home-page .project-math { background: linear-gradient(135deg, #f8f3eb, #eee9e1); }
+.home-page .project-visual { background: #ffffffa6; border-color: #fff; }
+.home-page .project-footer a span, .home-page .member-link span { transition: transform .2s; }
+.home-page .project-footer a:hover span, .home-page .member-link:hover span { transform: translate(3px, -3px); }
+.home-page .group-extra-tools a { background: #fff; transition: border-color .2s, transform .2s; }
+.home-page .group-extra-tools a:hover { border-color: #c8b7df; transform: translateY(-2px); }
+.home-page .home-closing { background: #eeebf5; border: 1px solid #e6e0ee; }
+.home-page .personal-footer { border-color: #e5e0ee; }
+@media(max-width:1050px) {
+  .home-page .personal-hero { padding: 34px 30px; gap: 28px; }
+  .home-page .personal-hero h1 { font-size: 51px; }
+  .home-page .identity-card { min-height: 355px; }
+  .home-page .identity-orb { width: 170px; height: 170px; margin-left: -85px; top: 80px; }
+  .home-page .identity-ring { width: 225px; margin-left: -112px; top: 110px; }
+  .home-page .identity-ring.second { width: 200px; margin-left: -100px; top: 116px; }
+  .home-page .process-strip { padding: 18px; }
+  .home-page .process-item + .process-item { padding-left: 16px; }
+}
+@media(max-width:760px) {
+  .home-page .personal-hero { grid-template-columns: 1fr; gap: 22px; }
+  .home-page .identity-scene { max-width: 375px; width: 100%; margin: auto; }
+  .home-page .personal-hero h1 { font-size: 60px; }
+  .home-page .personal-intro { max-width: 100%; }
+}
+@media(max-width:580px) {
+  .home-page .personal-nav { height: 81px; }
+  .home-page .personal-brand-mark { border-radius: 11px; }
+  .home-page .personal-hero { margin: 21px 0 22px; padding: 28px 21px 22px; border-radius: 21px; gap: 22px; }
+  .home-page .hero-kicker { font-size: 7px; letter-spacing: .6px; padding: 7px 9px; }
+  .home-page .personal-hero h1 { font-size: 46px; line-height: 1.3; margin: 23px 0 17px; }
+  .home-page .greeting-star { font-size: 26px; margin: 14px 0 0 8px; }
+  .home-page .personal-intro { font-size: 11px; line-height: 2; }
+  .home-page .hero-actions { gap: 15px; margin-top: 23px; }
+  .home-page .home-button { font-size: 11px; padding: 11px 17px; gap: 16px; }
+  .home-page .home-text-link { font-size: 11px; gap: 9px; }
+  .home-page .hero-signature { font-size: 6.5px; letter-spacing: .3px; gap: 9px; margin-top: 25px; }
+  .home-page .hero-signature::before { width: 18px; }
+  .home-page .identity-scene { padding: 12px 4px 20px; }
+  .home-page .identity-card { min-height: 328px; padding: 22px; border-radius: 18px; }
+  .home-page .identity-orb { width: 164px; height: 164px; margin-left: -82px; top: 70px; }
+  .home-page .identity-ring { width: 220px; margin-left: -110px; top: 99px; }
+  .home-page .identity-ring.second { width: 195px; margin-left: -97px; top: 107px; }
+  .home-page .identity-bottom { left: 22px; bottom: 22px; }
+  .home-page .identity-bottom strong { font-size: 25px; }
+  .home-page .identity-bottom small { font-size: 10px; }
+  .home-page .identity-top { font-size: 7px; }
+  .home-page .identity-coordinates { font-size: 6px; right: 17px; }
+  .home-page .identity-sticker { font-size: 8px; padding: 9px 12px; right: -5px; bottom: 8px; }
+  .home-page .process-strip { padding: 17px 14px; gap: 7px; margin-bottom: 34px; }
+  .home-page .process-item + .process-item { padding-left: 11px; }
+  .home-page .process-item strong { font-size: 10px; }
+  .home-page .process-item small { font-size: 6px; letter-spacing: 0; }
+  .home-page .home-section-header h2 { font-size: 24px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .home-page .project-footer a span, .home-page .member-link span, .home-page .group-extra-tools a { transition: none; }
+}
+@media(max-width:380px) {
+  .home-page .greeting-star { display: none; }
+}
