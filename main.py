@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 
 from math_practice import bp as math_bp
 from math_practice.routes import init_question_bank
@@ -18,6 +18,76 @@ from dice_game import bp as dice_bp
 app = Flask(__name__)
 app.secret_key = 'change-this-secret-key'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+
+# ---------------- 头像上传 ----------------
+
+AVATAR_DIR = Path(app.static_folder) / 'uploads'
+ALLOWED_AVATAR_EXT = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'}
+MAX_AVATAR_BYTES = 3 * 1024 * 1024
+
+
+def latest_avatar():
+    """返回 static/uploads 下最新的头像文件，没有上传过则返回 None。"""
+    if not AVATAR_DIR.is_dir():
+        return None
+    files = [p for p in AVATAR_DIR.iterdir()
+             if p.is_file() and p.suffix.lower() in ALLOWED_AVATAR_EXT]
+    if not files:
+        return None
+    return max(files, key=lambda p: p.stat().st_mtime)
+
+
+def _back_url():
+    """回到来源页面；非本站来源则回首页，避免开放重定向。"""
+    ref = request.referrer
+    if ref and ref.startswith(request.host_url):
+        return ref
+    return url_for('index')
+
+
+def _with_param(url, key, value):
+    return f'{url}{"&" if "?" in url else "?"}{key}={value}'
+
+
+@app.context_processor
+def inject_avatar():
+    """让所有模板都能拿到 avatar_url（未上传时为 None）。"""
+    avatar = latest_avatar()
+    if avatar is None:
+        return {'avatar_url': None}
+    rel = url_for('static', filename=f'uploads/{avatar.name}')
+    return {'avatar_url': f'{rel}?v={int(avatar.stat().st_mtime)}'}
+
+
+@app.route('/avatar/upload', methods=['POST'])
+def upload_avatar():
+    """上传/更换头像，只保留最新的一张。"""
+    back = _back_url()
+    file = request.files.get('avatar')
+    if not file or not file.filename:
+        return redirect(back)
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_AVATAR_EXT:
+        return redirect(_with_param(back, 'avatar_error', 'format'))
+
+    data = file.read()
+    if not data:
+        return redirect(back)
+    if len(data) > MAX_AVATAR_BYTES:
+        return redirect(_with_param(back, 'avatar_error', 'size'))
+
+    try:
+        AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+        for old in AVATAR_DIR.glob('avatar.*'):
+            if old.is_file():
+                old.unlink(missing_ok=True)
+        (AVATAR_DIR / f'avatar{ext}').write_bytes(data)
+    except OSError:
+        # 目录不可写（例如部署在只读文件系统）时给出提示，而不是 500
+        return redirect(_with_param(back, 'avatar_error', 'save'))
+    return redirect(_with_param(back, 'avatar_ok', '1'))
+
 
 # ---------------- 代码统计（原功能） ----------------
 

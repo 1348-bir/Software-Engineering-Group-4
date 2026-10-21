@@ -13,6 +13,7 @@ env/
 # 数据库（运行时生成，不需要上传）
 math_practice/data/*.db
 game_24/data/*.db
+dice_game/data/*.db
 
 # IDE
 .idea/
@@ -34,3 +35,13 @@ Thumbs.db
 test/
 tests/
 *.zip
+
+# 用户上传的头像（个人文件，不需要上传）
+static/uploads/*
+!static/uploads/.gitkeep
+
+# 页面效果预览截图
+.preview/
+
+# 本地 AI 工作文档（计划/规格，非项目代码）
+.trae/

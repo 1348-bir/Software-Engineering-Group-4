@@ -4,172 +4,145 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>详细档案 · 文敬雄</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --card-border: #334155;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --text-dim: #64748b;
-            --accent-color: #3b82f6;
-            --accent-light: #60a5fa;
-            --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
-        }
-
-        * { box-sizing: border-box; }
-
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, 'PingFang SC', sans-serif;
-            background-color: var(--bg-color);
-            background-image:
-                radial-gradient(circle at 15% 10%, rgba(59,130,246,0.06), transparent 40%),
-                radial-gradient(circle at 85% 80%, rgba(139,92,246,0.06), transparent 40%);
-            background-attachment: fixed;
-            color: var(--text-main);
-            margin: 0;
-            padding: 40px 20px 60px;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .container { width: 100%; max-width: 860px; }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: var(--accent-light);
-            text-decoration: none;
-            margin-bottom: 20px;
-            font-weight: 500;
-            font-size: 0.9rem;
-            transition: gap 0.2s;
-        }
-        .back-link:hover { gap: 10px; }
-
-        .window-card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.4);
-            margin-bottom: 20px;
-        }
-
-        .window-header {
+        .profile-head {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 22px;
-            border-bottom: 1px solid var(--card-border);
-            padding-bottom: 12px;
+            gap: 30px;
+            flex-wrap: wrap;
         }
 
-        .window-title {
-            font-size: 1rem;
-            font-weight: 600;
-            font-family: 'Consolas', 'Monaco', monospace;
-            letter-spacing: 0.3px;
+        .profile-avatar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            flex: 0 0 auto;
         }
 
-        .window-dots { display: flex; gap: 6px; }
-        .dot { width: 11px; height: 11px; border-radius: 50%; }
-        .dot-red { background-color: #ef4444; }
-        .dot-yellow { background-color: #f59e0b; }
-        .dot-green { background-color: #10b981; }
+        .avatar-upload input[type='file'] { display: none; }
+        .avatar-upload label { cursor: pointer; }
 
-        h2 {
+        .profile-intro { flex: 1; min-width: 240px; }
+
+        .profile-intro h2 {
+            margin: 0 0 8px;
             font-size: 1.5rem;
-            margin: 0 0 8px 0;
-            color: var(--text-main);
+            font-weight: 750;
+            letter-spacing: -0.3px;
         }
 
-        h3 {
-            color: var(--accent-light);
-            font-size: 1.05rem;
-            margin: 24px 0 12px 0;
-            padding-left: 12px;
-            border-left: 3px solid var(--accent-color);
-            font-weight: 600;
-        }
-
-        p, li {
-            color: var(--text-muted);
-            line-height: 1.7;
-            font-size: 0.92rem;
-        }
-
-        ul { padding-left: 20px; margin: 8px 0; }
-        li { margin-bottom: 6px; }
+        .profile-intro > p { margin: 0; font-size: 0.92rem; }
 
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-top: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 14px;
+            margin-top: 26px;
         }
 
         .info-item {
-            padding: 14px 16px;
-            background: rgba(15,23,42,0.5);
-            border: 1px solid var(--card-border);
-            border-radius: 10px;
+            padding: 16px 18px;
+            border-radius: var(--r-md);
+            background: rgba(255, 255, 255, 0.6);
+            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.85);
+            box-shadow: inset 0 1px 0 #fff;
+            transition: transform 0.24s var(--ease), box-shadow 0.24s var(--ease);
         }
+
+        .info-item:hover { transform: translateY(-3px); box-shadow: inset 0 1px 0 #fff, var(--shadow-1); }
 
         .info-label {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            margin-bottom: 4px;
+            margin-bottom: 5px;
+            font-size: 0.72rem;
+            font-weight: 680;
+            letter-spacing: 1px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: var(--text-dim);
         }
 
-        .info-value {
-            font-size: 0.92rem;
-            color: var(--text-main);
+        .info-value { font-size: 0.92rem; font-weight: 560; color: var(--text); }
+
+        .window-card ul { margin: 8px 0 0; padding-left: 20px; }
+        .window-card li { margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; }
+        .window-card li strong { color: var(--text); font-weight: 640; }
+        .window-card p { font-size: 0.9rem; }
+        .window-card strong { color: var(--text); font-weight: 640; }
+
+        .tag-group + .tag-group { margin-top: 18px; }
+        .tag-group-title { margin: 0 0 8px; font-size: 0.88rem; font-weight: 640; color: var(--text); }
+
+        .quote {
+            margin: 18px 0 0;
+            padding-left: 16px;
+            border-left: 3px solid var(--blue-300);
+            font-style: italic;
+            color: var(--text-dim);
         }
 
-        .tag-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        .tag {
-            padding: 5px 12px;
-            border-radius: 6px;
-            background: rgba(59,130,246,0.1);
-            color: var(--accent-light);
-            border: 1px solid rgba(59,130,246,0.2);
-            font-size: 0.83rem;
-        }
-
-        @media (max-width: 600px) {
-            .window-card { padding: 22px; }
-            h2 { font-size: 1.25rem; }
+        @media (max-width: 620px) {
+            .profile-head { gap: 22px; justify-content: center; text-align: center; }
+            .profile-intro { text-align: center; }
         }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div class="container-narrow">
+
+    <nav class="topnav" aria-label="站点导航">
+        <a class="topnav-brand" href="{{ url_for('index') }}">文敬雄 · Personal Site</a>
+        <div class="topnav-links">
+            <a class="topnav-link" href="{{ url_for('index') }}">首页</a>
+            <a class="topnav-link" href="{{ url_for('profile_detail') }}" aria-current="page">详细档案</a>
+            <a class="topnav-link" href="{{ url_for('projects') }}">我的项目</a>
+        </div>
+    </nav>
+
+    {% if request.args.get('avatar_ok') %}
+        <div class="alert alert-ok">头像已更新。</div>
+    {% elif request.args.get('avatar_error') == 'format' %}
+        <div class="alert alert-error">只支持 PNG / JPG / JPEG / GIF / WEBP / BMP 格式的图片。</div>
+    {% elif request.args.get('avatar_error') == 'size' %}
+        <div class="alert alert-error">图片太大了，请上传 3MB 以内的头像。</div>
+    {% elif request.args.get('avatar_error') == 'save' %}
+        <div class="alert alert-error">头像保存失败，请确认 static/uploads 目录可写。</div>
+    {% endif %}
+
     <a href="{{ url_for('index') }}" class="back-link">← 返回个人主页</a>
 
     <div class="window-card">
         <div class="window-header">
-            <div class="window-dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
-            </div>
             <span class="window-title">详细档案</span>
         </div>
 
-        <h2>个人详细档案</h2>
-        <p>Full-Stack Developer · 四川大学在读 · 热爱 Web 开发与算法工程。</p>
+        <div class="profile-head">
+            <div class="profile-avatar">
+                <div class="avatar {% if avatar_url %}has-image{% endif %}">
+                    {% if avatar_url %}
+                        <img src="{{ avatar_url }}" alt="文敬雄的头像">
+                    {% else %}
+                        <span class="avatar-empty">暂无头像</span>
+                    {% endif %}
+                </div>
+                <form class="avatar-upload" method="POST" action="{{ url_for('upload_avatar') }}"
+                      enctype="multipart/form-data">
+                    <label class="btn btn-sm" for="profileAvatarInput">
+                        {% if avatar_url %}更换头像{% else %}上传头像{% endif %}
+                    </label>
+                    <input id="profileAvatarInput" type="file" name="avatar" accept="image/*"
+                           onchange="this.form.submit()">
+                </form>
+            </div>
+
+            <div class="profile-intro">
+                <h2>文敬雄</h2>
+                <p class="muted">Full-Stack Developer · 四川大学在读 · 热爱 Web 开发与算法工程。</p>
+            </div>
+        </div>
 
         <div class="info-grid">
             <div class="info-item">
@@ -193,16 +166,10 @@
 
     <div class="window-card">
         <div class="window-header">
-            <div class="window-dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
-            </div>
             <span class="window-title">教育背景</span>
         </div>
 
-        <h3>🎓 教育背景</h3>
-        <p><strong style="color: var(--text-main);">四川大学</strong> · 计算机相关专业 · 2024 — 至今</p>
+        <p style="margin-top: 0;"><strong>四川大学</strong> · 计算机相关专业 · 2024 — 至今</p>
         <ul>
             <li>主修课程：数据结构、算法设计与分析、操作系统、计算机网络、数据库原理</li>
             <li>重点方向：Web 全栈开发、算法工程、自动化工具</li>
@@ -211,74 +178,61 @@
 
     <div class="window-card">
         <div class="window-header">
-            <div class="window-dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
-            </div>
             <span class="window-title">技术专长</span>
         </div>
 
-        <h3>💻 技术专长</h3>
-
-        <p style="margin-bottom: 4px;"><strong style="color: var(--text-main);">后端开发</strong></p>
-        <div class="tag-row">
-            <span class="tag">Python</span>
-            <span class="tag">Flask</span>
-            <span class="tag">SQLite</span>
-            <span class="tag">REST API</span>
-            <span class="tag">Jinja2</span>
+        <div class="tag-group">
+            <p class="tag-group-title">后端开发</p>
+            <div class="tag-row">
+                <span class="tag">Python</span>
+                <span class="tag">Flask</span>
+                <span class="tag">SQLite</span>
+                <span class="tag">REST API</span>
+                <span class="tag">Jinja2</span>
+            </div>
         </div>
 
-        <p style="margin: 16px 0 4px;"><strong style="color: var(--text-main);">编程语言</strong></p>
-        <div class="tag-row">
-            <span class="tag">Java</span>
-            <span class="tag">C</span>
-            <span class="tag">C++</span>
-            <span class="tag">JavaScript</span>
+        <div class="tag-group">
+            <p class="tag-group-title">编程语言</p>
+            <div class="tag-row">
+                <span class="tag">Java</span>
+                <span class="tag">C</span>
+                <span class="tag">C++</span>
+                <span class="tag">JavaScript</span>
+            </div>
         </div>
 
-        <p style="margin: 16px 0 4px;"><strong style="color: var(--text-main);">算法与工具</strong></p>
-        <div class="tag-row">
-            <span class="tag">逆波兰表达式</span>
-            <span class="tag">调度场算法</span>
-            <span class="tag">OCR</span>
-            <span class="tag">Git</span>
-            <span class="tag">Linux</span>
+        <div class="tag-group">
+            <p class="tag-group-title">算法与工具</p>
+            <div class="tag-row">
+                <span class="tag">逆波兰表达式</span>
+                <span class="tag">调度场算法</span>
+                <span class="tag">OCR</span>
+                <span class="tag">Git</span>
+                <span class="tag">Linux</span>
+            </div>
         </div>
     </div>
 
     <div class="window-card">
         <div class="window-header">
-            <div class="window-dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
-            </div>
             <span class="window-title">项目经历</span>
         </div>
 
-        <h3>🚀 项目经历</h3>
         <ul>
-            <li><strong style="color: var(--text-main);">多语言代码统计工具</strong> — Flask 后端 + 状态机注释过滤，支持 Python / Java / C / C++ 项目 zip 分析。</li>
-            <li><strong style="color: var(--text-main);">数学练习与自动改卷系统</strong> — 逆波兰表达式引擎、调度场算法、1 万道题库、OCR 识别与自动批改。</li>
-            <li><strong style="color: var(--text-main);">24 点游戏</strong> — 递归枚举求解、多解提示、历史记录与正确率统计。</li>
+            <li><strong>多语言代码统计工具</strong> — Flask 后端 + 状态机注释过滤，支持 Python / Java / C / C++ 项目 zip 分析。</li>
+            <li><strong>数学练习与自动改卷系统</strong> — 逆波兰表达式引擎、调度场算法、1 万道题库、OCR 识别与自动批改。</li>
+            <li><strong>24 点游戏</strong> — 递归枚举求解、多解提示、历史记录与正确率统计。</li>
         </ul>
     </div>
 
     <div class="window-card">
         <div class="window-header">
-            <div class="window-dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
-            </div>
             <span class="window-title">开发理念</span>
         </div>
 
-        <h3>💡 开发理念</h3>
         <p>坚持编写整洁的代码，追求极致的性能与优雅的用户体验。相信好的工具应该让人感觉自然、高效，而不是增加负担。</p>
-        <p style="color: var(--text-dim); font-style: italic; margin-top: 16px;">"花开花落，静守己心。"</p>
+        <p class="quote">“花开花落，静守己心。”</p>
     </div>
 
 </div>

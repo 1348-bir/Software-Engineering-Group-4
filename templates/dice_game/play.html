@@ -4,145 +4,121 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ t('title') }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --card-border: #334155;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-color: #3b82f6;
-            --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            --green: #10b981;
-            --red: #ef4444;
-        }
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0; padding: 40px 20px;
-            display: flex; justify-content: center;
-        }
-        .container { width: 100%; max-width: 800px; }
-        .back-link {
-            display: inline-block; color: #60a5fa;
-            text-decoration: none; margin-bottom: 20px; font-weight: 500;
-        }
-        .back-link:hover { text-decoration: underline; }
-        .window-card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 16px; padding: 30px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
-        }
-        .window-header {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 20px; border-bottom: 1px solid var(--card-border);
-            padding-bottom: 10px;
-        }
-        .window-title { font-size: 1.1rem; font-weight: 600; }
-        .window-dots { display: flex; gap: 6px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .dot-red { background-color: #ef4444; }
-        .dot-yellow { background-color: #f59e0b; }
-        .dot-green { background-color: #10b981; }
-
-        .toolbar {
-            display: flex; gap: 10px; align-items: center;
-            flex-wrap: wrap; margin-bottom: 20px;
-        }
-        .btn {
-            background: var(--accent-gradient); color: white;
-            border: none; padding: 10px 20px; border-radius: 8px;
-            font-weight: 600; cursor: pointer; text-decoration: none;
-            display: inline-block; font-size: 0.95rem;
-        }
-        .btn:hover { opacity: 0.9; }
-        .btn-secondary {
-            background: transparent; border: 1px solid var(--card-border);
-            color: var(--text-main);
-        }
-        select {
-            background: var(--card-bg); color: var(--text-main);
-            border: 1px solid var(--card-border); border-radius: 8px;
-            padding: 8px 12px; font-size: 0.95rem;
-        }
+        /* ===== 本页独有样式：骰子点数展示（配色与材质均取自 theme.css 令牌） ===== */
 
         .dice-area {
-            display: flex; justify-content: center; align-items: center;
-            gap: 40px; margin: 30px 0; min-height: 150px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            margin: 30px 0;
+            min-height: 150px;
         }
+
         .dice {
-            width: 110px; height: 110px;
-            background: #f8fafc; border-radius: 18px;
-            box-shadow: 0 12px 25px -8px rgba(0,0,0,0.6);
+            width: 110px;
+            height: 110px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-template-rows: repeat(3, 1fr);
+            gap: 6px;
             padding: 14px;
-            transition: transform 0.15s ease;
+
+            border-radius: var(--r-lg);
+            background: linear-gradient(150deg, rgba(255, 255, 255, 0.94), rgba(219, 234, 254, 0.78));
+            -webkit-backdrop-filter: blur(14px) saturate(180%);
+            backdrop-filter: blur(14px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-1), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+            transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
         }
-        .dice.rolling { animation: shake 0.4s; }
+
+        .dice.rolling { animation: shake 0.4s var(--ease); }
+
         .dice .pip {
-            background: #1e293b; border-radius: 50%;
+            background: var(--blue-600);
+            border-radius: 50%;
             opacity: 0;
-            transition: opacity 0.2s;
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.45);
+            transition: opacity 0.2s var(--ease);
         }
+
         .dice .pip.on { opacity: 1; }
+
         @keyframes shake {
             0%, 100% { transform: rotate(0deg); }
             25% { transform: rotate(-12deg); }
             75% { transform: rotate(12deg); }
         }
+
         .dice-sum {
-            text-align: center; margin: 0 0 20px 0;
-            font-size: 1.1rem; color: var(--text-muted);
+            text-align: center;
+            margin: 0 0 20px;
+            font-size: 1.05rem;
+            color: var(--text-muted);
         }
+
         .dice-sum b {
-            color: #60a5fa; font-size: 1.4rem;
-            font-family: 'Consolas', monospace;
+            color: var(--blue-600);
+            font-size: 1.5rem;
+            font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+            font-variant-numeric: tabular-nums;
         }
-
-        .hint {
-            color: var(--text-muted); text-align: center;
-            font-size: 0.9rem; margin-bottom: 20px;
-        }
-
-        .result-box {
-            margin-top: 20px; padding: 16px;
-            border-radius: 10px; display: none;
-        }
-        .result-box.ok {
-            background: rgba(16,185,129,0.1);
-            border: 1px solid rgba(16,185,129,0.3);
-        }
-        .result-box.no {
-            background: rgba(239,68,68,0.1);
-            border: 1px solid rgba(239,68,68,0.3);
-        }
-        .result-title { font-size: 1.2rem; font-weight: 700; text-align: center; }
-        .result-box.ok .result-title { color: var(--green); }
-        .result-box.no .result-title { color: var(--red); }
     </style>
 </head>
 <body>
 <div class="container">
+
+    <nav class="topnav" aria-label="站点导航">
+        <a class="topnav-brand" href="{{ url_for('index') }}">文敬雄 · Personal Site</a>
+        <div class="topnav-links">
+            <a class="topnav-link" href="{{ url_for('index') }}">首页</a>
+            <a class="topnav-link" href="{{ url_for('profile_detail') }}">详细档案</a>
+            <a class="topnav-link" href="{{ url_for('projects') }}">我的项目</a>
+        </div>
+    </nav>
+
     <a href="{{ url_for('index') }}" class="back-link">← {{ t('back_home') }}</a>
+
+    <div class="howto">
+        <h2 class="howto-title">{{ t('howto_title') }}</h2>
+        <div class="steps">
+            <div class="step">
+                <span class="step-num">1</span>
+                <div>
+                    <span class="step-title">{{ t('howto_s1_title') }}</span>
+                    <p class="step-desc">{{ t('howto_s1_desc') }}</p>
+                </div>
+            </div>
+            <div class="step">
+                <span class="step-num">2</span>
+                <div>
+                    <span class="step-title">{{ t('howto_s2_title') }}</span>
+                    <p class="step-desc">{{ t('howto_s2_desc') }}</p>
+                </div>
+            </div>
+            <div class="step">
+                <span class="step-num">3</span>
+                <div>
+                    <span class="step-title">{{ t('howto_s3_title') }}</span>
+                    <p class="step-desc">{{ t('howto_s3_desc') }}</p>
+                </div>
+            </div>
+        </div>
+        <p class="tip tip-info">{{ t('howto_tip') }}</p>
+    </div>
 
     <div class="window-card">
         <div class="window-header">
-            <div class="window-dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
-            </div>
-            <span class="window-title">dice_game.exe - {{ t('title') }}</span>
+            <span class="window-title">{{ t('title') }}</span>
         </div>
 
         <div class="toolbar">
-            <button class="btn" onclick="roll()">🎲 {{ t('roll') }}</button>
-            <a href="{{ url_for('dice_game.history', lang=lang) }}" class="btn btn-secondary">
-                📜 {{ t('history') }}
+            <button class="btn btn-primary" onclick="roll()">{{ t('roll') }}</button>
+            <a href="{{ url_for('dice_game.history', lang=lang) }}" class="btn">
+                {{ t('history') }}
             </a>
             <select onchange="switchLang(this.value)">
                 <option value="zh" {% if lang=='zh' %}selected{% endif %}>中文</option>

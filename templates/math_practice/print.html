@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('print_title') }} - {{ t('title') }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <style>
+        /* ===== 打印卷面样式 ===== */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin: 18px 0 24px;
+        }
+
+        .print-sheet {
+            background: #fff;
+            border-radius: 16px;
+            padding: 30px 26px;
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.10);
+        }
+
+        .print-head { text-align: center; margin-bottom: 24px; }
+        .print-head h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 0 0 6px;
+            letter-spacing: 0.5px;
+        }
+        .print-meta { color: #64748b; font-size: 0.85rem; }
+
+        .print-grid {
+            display: grid;
+            grid-template-columns: repeat({{ cfg.columns }}, 1fr);
+            column-gap: 30px;
+        }
+
+        .print-item {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            padding: 8px 2px 12px;
+            line-height: calc(1.55 * var(--ls, 1));
+            border-bottom: 1px dashed #cbd5e1;
+        }
+
+        .q-no { color: #64748b; font-size: 0.82rem; min-width: 24px; }
+        .q-expr {
+            font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+            font-size: 1.02rem;
+            flex: 1;
+            white-space: nowrap;
+        }
+        .q-line {
+            display: inline-block;
+            flex: 0 0 62px;
+            height: 1.1em;
+            border-bottom: 1px solid #475569;
+        }
+        .q-ans { color: #dc2626; font-weight: 600; }
+
+        @media print {
+            .topnav, .toolbar, .back-link, .howto, .noprint { display: none !important; }
+            body { background: #fff !important; padding: 0 !important; }
+            .container { max-width: none !important; }
+            .print-sheet { box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; }
+            .print-item { break-inside: avoid; border-bottom-color: #e2e8f0; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <nav class="topnav" aria-label="站点导航">
+        <a class="topnav-brand" href="{{ url_for('index') }}">文敬雄 · Personal Site</a>
+        <div class="topnav-links">
+            <a class="topnav-link" href="{{ url_for('index') }}">首页</a>
+            <a class="topnav-link" href="{{ url_for('profile_detail') }}">详细档案</a>
+            <a class="topnav-link" href="{{ url_for('projects') }}">我的项目</a>
+        </div>
+    </nav>
+
+    <a href="{{ url_for('math_practice.practice', lang=lang) }}" class="back-link">
+        ← {{ t('back_to_practice') }}
+    </a>
+
+    <div class="toolbar noprint">
+        <button class="btn btn-primary" onclick="window.print()">{{ t('print') }}</button>
+        {% if cfg.show_answers %}
+            <a class="btn" href="{{ toggle_practice_url }}">{{ t('print_practice') }}</a>
+        {% else %}
+            <a class="btn" href="{{ toggle_answer_url }}">{{ t('print_answer') }}</a>
+        {% endif %}
+        <span class="muted">{{ t('print_title') }}</span>
+        <select onchange="switchLang(this.value)">
+            <option value="zh" {% if lang=='zh' %}selected{% endif %}>中文</option>
+            <option value="en" {% if lang=='en' %}selected{% endif %}>English</option>
+            <option value="ja" {% if lang=='ja' %}selected{% endif %}>日本語</option>
+        </select>
+    </div>
+
+    <div class="print-sheet" style="--ls: {{ cfg.line_spacing }};">
+        <div class="print-head">
+            <h1>{{ t('print_title') }}</h1>
+            <div class="print-meta">
+                {{ t('cfg_count') }}：{{ questions|length }}
+                {% if cfg.show_answers %} · {{ t('answers_label') }}{% endif %}
+            </div>
+        </div>
+
+        <div class="print-grid">
+            {% for q in questions %}
+            <div class="print-item">
+                <span class="q-no">{{ loop.index }}.</span>
+                <span class="q-expr">{{ q.expr }} =</span>
+                {% if cfg.show_answers %}
+                    <span class="q-ans">{{ q.answer_text }}</span>
+                {% else %}
+                    <span class="q-line"></span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function switchLang(lang) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('lang', lang);
+        window.location.href = url.toString();
+    }
+</script>
+</body>
+</html>

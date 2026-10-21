@@ -3,9 +3,9 @@ import os
 import tempfile
 import uuid
 
-from flask import (Blueprint, render_template, request, jsonify, session)
+from flask import (Blueprint, render_template, request, jsonify, session, url_for)
 
-from .engine import generate_batch, generate_to_db, grade_batch, grade_one
+from .engine import QuestionConfig, generate_batch, generate_to_db, grade_batch, grade_one
 from .db import MathDB
 from .i18n import get_lang, translator
 from . import ocr
@@ -57,17 +57,54 @@ def upload():
     return render_template('math_practice/upload.html', t=tr, lang=lang)
 
 
+@bp.route('/print')
+def print_sheet():
+    """打印卷面：按配置即时出题，支持练习版/答案版切换"""
+    lang = get_lang(request)
+    tr = translator(lang)
+    cfg = QuestionConfig.from_query(request.args)
+    qs = generate_batch(cfg.count, cfg)
+    questions = [{'expr': e, 'answer_text': t} for e, t, _ in qs]
+
+    q = cfg.to_query()
+    q['show_answers'] = '1'
+    toggle_answer_url = url_for('math_practice.print_sheet', **q)
+    q['show_answers'] = '0'
+    toggle_practice_url = url_for('math_practice.print_sheet', **q)
+
+    return render_template('math_practice/print.html', t=tr, lang=lang,
+                           questions=questions, cfg=cfg,
+                           toggle_answer_url=toggle_answer_url,
+                           toggle_practice_url=toggle_practice_url)
+
+
 # ---------------- API ----------------
 
 @bp.route('/api/questions')
 def api_questions():
-    n = int(request.args.get('n', 10))
+    cfg = QuestionConfig.from_query(request.args)
+    custom_keys = ('num_range', 'allow_mult_div', 'allow_parentheses',
+                   'allow_negative', 'allow_remainder', 'allow_fraction')
+    has_custom = any(k in request.args for k in custom_keys)
+
+    if has_custom:
+        # 定制配置：即时生成，不入库（避免污染题库）
+        qs = generate_batch(cfg.count, cfg)
+        return jsonify({
+            'questions': [{'expr': e, 'answer': None, 'answer_text': t}
+                          for e, t, _ in qs]
+        })
+
+    # 默认配置：从题库随机取题，不足时补齐
+    n = cfg.count
     qs = db.random_questions(n)
     if len(qs) < n:
         extra = generate_batch(n - len(qs))
-        qs.extend(extra)
+        for e, t, a in extra:
+            qs.append((e, int(a)))
     return jsonify({
-        'questions': [{'expr': e, 'answer': a} for e, a in qs]
+        'questions': [{'expr': e, 'answer': a, 'answer_text': str(a)}
+                      for e, a in qs]
     })
 
 
@@ -117,7 +154,8 @@ def api_generate():
     data = request.get_json() or {}
     count = int(data.get('count', 10000))
     batch = int(data.get('batch', 500))
-    total = generate_to_db(db, count=count, batch=batch)
+    cfg = QuestionConfig.from_dict(data)
+    total = generate_to_db(db, count=count, batch=batch, cfg=cfg)
     return jsonify({'generated': total, 'total_in_db': db.question_count()})
 
 

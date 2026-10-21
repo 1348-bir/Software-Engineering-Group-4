@@ -4,130 +4,101 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ t('upload') }} - {{ t('title') }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --card-border: #334155;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-color: #3b82f6;
-            --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            --green: #10b981;
-            --red: #ef4444;
-        }
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0; padding: 40px 20px;
-            display: flex; justify-content: center;
-        }
-        .container { width: 100%; max-width: 800px; }
-        .back-link {
-            display: inline-block; color: #60a5fa;
-            text-decoration: none; margin-bottom: 20px; font-weight: 500;
-        }
-        .back-link:hover { text-decoration: underline; }
-        .window-card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 16px; padding: 30px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
-        }
-        .window-header {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 20px; border-bottom: 1px solid var(--card-border);
-            padding-bottom: 10px;
-        }
-        .window-title { font-size: 1.1rem; font-weight: 600; }
-        .window-dots { display: flex; gap: 6px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .dot-red { background-color: #ef4444; }
-        .dot-yellow { background-color: #f59e0b; }
-        .dot-green { background-color: #10b981; }
+        /* 数学练习 · 上传批改页面独有样式（上传区材质来自 theme.css 的 .dropzone） */
 
-        .toolbar {
-            display: flex; gap: 10px; align-items: center;
-            flex-wrap: wrap; margin-bottom: 20px;
-        }
-        .btn {
-            background: var(--accent-gradient); color: white;
-            border: none; padding: 10px 20px; border-radius: 8px;
-            font-weight: 600; cursor: pointer; text-decoration: none;
-            display: inline-block; font-size: 0.95rem;
-        }
-        .btn:hover { opacity: 0.9; }
-        .btn-secondary {
-            background: transparent; border: 1px solid var(--card-border);
-            color: var(--text-main);
-        }
-        select {
-            background: var(--card-bg); color: var(--text-main);
-            border: 1px solid var(--card-border); border-radius: 8px;
-            padding: 8px 12px; font-size: 0.95rem;
-        }
-
-        .upload-area {
-            border: 2px dashed var(--card-border);
-            padding: 30px; text-align: center;
-            border-radius: 12px;
-            background-color: rgba(15, 23, 42, 0.4);
-            margin-bottom: 20px;
-        }
-        .upload-area input[type="file"] {
-            color: var(--text-muted); margin: 15px 0;
-        }
+        .upload-area { margin-bottom: 20px; }
 
         .preview-img {
-            max-width: 100%; max-height: 300px;
-            border-radius: 8px; margin-top: 15px;
-            border: 1px solid var(--card-border);
+            max-width: 100%;
+            max-height: 300px;
+            margin-top: 15px;
+            border-radius: var(--r-md);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-1);
         }
 
-        .result-box {
-            margin-top: 20px; padding: 16px;
-            background: rgba(59,130,246,0.1);
-            border: 1px solid rgba(59,130,246,0.2);
-            border-radius: 10px;
+        #resultBox {
+            background: var(--glass-strong);
+            border-color: var(--line);
         }
+
         .result-row {
-            display: flex; justify-content: space-between;
-            padding: 6px 0; font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 0;
+            font-size: 0.95rem;
+            border-bottom: 1px dashed var(--line-soft);
         }
-        .result-label { color: var(--text-muted); }
-        .result-value { font-family: Consolas, monospace; }
-        .result-value.ok { color: var(--green); font-weight: 700; }
-        .result-value.no { color: var(--red); font-weight: 700; }
+        .result-row:last-child { border-bottom: 0; }
 
-        .tip {
-            color: var(--text-muted); font-size: 0.85rem;
-            margin-top: 12px; line-height: 1.6;
+        .result-label { color: var(--text-muted); }
+        .result-value {
+            font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+            font-weight: 650;
+            color: var(--text);
         }
+        .result-value.ok { color: var(--ok); font-weight: 700; }
+        .result-value.no { color: var(--danger); font-weight: 700; }
     </style>
 </head>
 <body>
-<div class="container">
+<div class="container container-narrow">
+
+    <nav class="topnav" aria-label="站点导航">
+        <a class="topnav-brand" href="{{ url_for('index') }}">文敬雄 · Personal Site</a>
+        <div class="topnav-links">
+            <a class="topnav-link" href="{{ url_for('index') }}">首页</a>
+            <a class="topnav-link" href="{{ url_for('profile_detail') }}">详细档案</a>
+            <a class="topnav-link" href="{{ url_for('projects') }}">我的项目</a>
+        </div>
+    </nav>
+
     <a href="{{ url_for('math_practice.practice', lang=lang) }}" class="back-link">
         ← {{ t('title') }}
     </a>
 
+    <div class="howto">
+        <h2 class="howto-title">{{ t('howto_title') }}</h2>
+        <div class="steps">
+            <div class="step">
+                <span class="step-num">1</span>
+                <div>
+                    <span class="step-title">{{ t('howto_upload_s1_title') }}</span>
+                    <p class="step-desc">{{ t('howto_upload_s1_desc') }}</p>
+                </div>
+            </div>
+            <div class="step">
+                <span class="step-num">2</span>
+                <div>
+                    <span class="step-title">{{ t('howto_upload_s2_title') }}</span>
+                    <p class="step-desc">{{ t('howto_upload_s2_desc') }}</p>
+                </div>
+            </div>
+            <div class="step">
+                <span class="step-num">3</span>
+                <div>
+                    <span class="step-title">{{ t('howto_upload_s3_title') }}</span>
+                    <p class="step-desc">{{ t('howto_upload_s3_desc') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="window-card">
         <div class="window-header">
-            <div class="window-dots">
-                <div class="dot dot-red"></div>
-                <div class="dot dot-yellow"></div>
-                <div class="dot dot-green"></div>
-            </div>
-            <span class="window-title">ocr_scanner.exe - {{ t('upload') }}</span>
+            <span class="window-title">{{ t('upload') }}</span>
         </div>
 
         <div class="toolbar">
-            <a href="{{ url_for('math_practice.practice', lang=lang) }}" class="btn btn-secondary">
-                🧮 {{ t('title') }}
+            <a href="{{ url_for('math_practice.practice', lang=lang) }}" class="btn btn-secondary btn-sm">
+                {{ t('title') }}
             </a>
-            <a href="{{ url_for('math_practice.history', lang=lang) }}" class="btn btn-secondary">
-                📜 {{ t('history') }}
+            <a href="{{ url_for('math_practice.history', lang=lang) }}" class="btn btn-secondary btn-sm">
+                {{ t('history') }}
             </a>
             <select onchange="switchLang(this.value)">
                 <option value="zh" {% if lang=='zh' %}selected{% endif %}>中文</option>
@@ -141,8 +112,8 @@
         </p>
 
         <form id="uploadForm" onsubmit="return false;">
-            <div class="upload-area">
-                <p>📷 选择图片（PNG / JPG）：</p>
+            <div class="upload-area dropzone">
+                <p>选择图片（PNG / JPG）：</p>
                 <input type="file" id="imageInput" accept="image/*">
                 <br>
                 <img id="preview" class="preview-img" style="display:none;">
@@ -152,14 +123,10 @@
                 </label>
                 <input class="btn-secondary" type="text" id="userAnswer"
                        placeholder="{{ t('expr_placeholder') }}"
-                       style="padding: 8px 12px; border-radius: 8px;
-                              background: rgba(15,23,42,0.8);
-                              color: var(--text-main);
-                              border: 1px solid var(--card-border);
-                              margin-left: 8px; width: 120px;">
+                       style="width: 120px; margin-left: 8px;">
                 <br><br>
-                <button class="btn" onclick="uploadImage()">
-                    🚀 {{ t('submit') }}
+                <button class="btn btn-primary" onclick="uploadImage()">
+                    {{ t('submit') }}
                 </button>
             </div>
         </form>
@@ -179,10 +146,10 @@
             </div>
         </div>
 
-        <div class="tip">
-            ⚠️ OCR 识别对手写体支持有限，建议使用打印体算式。<br>
+        <p class="tip tip-info">
+            OCR 识别对手写体支持有限，建议使用打印体算式。<br>
             如果服务器未安装 PaddleOCR，本功能会自动降级，返回空结果。
-        </div>
+        </p>
     </div>
 </div>
 
