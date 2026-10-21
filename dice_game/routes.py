@@ -1,8 +1,8 @@
 # dice_game/routes.py
 import os
-import uuid
+from session_user import current_user
 
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify
 
 from .engine import roll_dice, is_win
 from .db import DiceDB
@@ -21,11 +21,6 @@ bp = Blueprint(
 
 db = DiceDB()
 
-
-def current_user():
-    if 'uid' not in session:
-        session['uid'] = uuid.uuid4().hex[:16]
-    return session['uid']
 
 
 # ---------------- 页面路由 ----------------

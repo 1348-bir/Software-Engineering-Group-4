@@ -1,11 +1,9 @@
-{% extends 'base.html' %}{% block title %}小组项目{% endblock %}{% block crumb %}小组项目{% endblock %}{% block content %}<div class="page-heading"><div><div class="eyebrow">OUR PROJECTS</div><h1>把不同的想法，连成一个空间。</h1><p>代码分析、数学练习与趣味游戏，保留双方项目功能并统一入口。</p></div><a class="button ghost" href="{{ team.repository }}" target="_blank" rel="noopener noreferrer">查看仓库 ↗</a></div><div class="tool-grid">
+{% extends 'base.html' %}{% block title %}小组项目{% endblock %}{% block crumb %}小组项目{% endblock %}{% block content %}<div class="page-heading"><div><div class="eyebrow">OUR PROJECTS</div><h1>把不同的想法，连成一个空间。</h1><p>代码分析、数学练习与趣味游戏，每项功能保留一套实现，统一入口。</p></div><a class="button ghost" href="{{ team.repository }}" target="_blank" rel="noopener noreferrer">查看仓库 ↗</a></div><div class="tool-grid">
 {% for name, description, target, badge in [
 ('代码统计实验室','支持多语言源码、文件夹、ZIP、公开 GitHub 与网址导入；上限 1 GB，可导出 CSV。','/code-stats','CODE'),
 ('定制数学练习','自选数值范围、乘除、括号、负数及分数，自动批改并保存个人练习记录。','/math/','CUSTOM'),
 ('练习卷打印','根据配置生成练习版或答案版，可调整题数、列数与行距。','/math/print','PRINT'),
 ('图片算式识别','保留原仓库的 OCR 入口；安装可选识别依赖后可使用图片识别。','/math/upload','OCR'),
 ('24 点多解练习','四个数字组成 24，保留原仓库的多解提示和逐次练习历史。','/game24/','PUZZLE'),
-('骰子游戏','掷两枚骰子，总和为 7 即获胜，记录每次结果与胜率。','/dice/','DICE'),
-('快速算术挑战','10 道四则运算题，自动计时、评分并显示逐题解析。','/arithmetic','QUICK'),
-('24 点快速挑战','随机生成有解题目，查看参考答案，同一题只记录一次成绩。','/game24','QUICK')
+('骰子游戏','掷两枚骰子，总和为 7 即获胜，记录每次结果与胜率。','/dice/','DICE')
 ] %}<a class="tool-card" href="{{ target }}"><div class="tool-top"><span class="tool-icon purple">{{ loop.index }}</span><span class="pill">{{ badge }}</span><span class="arrow">↗</span></div><h3>{{ name }}</h3><p>{{ description }}</p><div class="tool-bottom">GROUP 04 <span>进入项目 →</span></div></a>{% endfor %}</div>{% endblock %}

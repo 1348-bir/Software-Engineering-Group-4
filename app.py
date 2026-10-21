@@ -1,15 +1,35 @@
-import json
 import os
-from pathlib import Path
-from flask import jsonify, render_template, request
-from math_app import app, init_db
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 from code_stats import analyze_uploads, MAX_REQUEST, MAX_UPLOAD, MAX_FILES
 from url_source import analyze_url
 
-ROOT = Path(__file__).resolve().parent
+app = Flask(__name__)
 app.config.update(MAX_CONTENT_LENGTH=MAX_REQUEST, MAX_FORM_PARTS=1200,
                   SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
+
+
+@app.get('/')
+def index():
+    return render_template('home.html')
+
+
+@app.get('/history')
+def history():
+    return render_template('history.html')
+
+
+@app.get('/arithmetic')
+@app.post('/arithmetic/submit')
+def legacy_arithmetic():
+    return redirect(url_for('math_practice.practice'), code=303)
+
+
+@app.get('/game24')
+@app.get('/game24/solution')
+@app.post('/game24/check')
+def legacy_game24():
+    return redirect(url_for('game_24.play'), code=303)
 
 
 @app.context_processor
@@ -58,8 +78,6 @@ def analyze_remote_source():
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
 
-
-init_db()
 
 from math_practice import bp as math_practice_bp
 from game_24 import bp as game24_bp

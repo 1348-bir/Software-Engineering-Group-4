@@ -1,9 +1,9 @@
 # math_practice/routes.py
 import os
 import tempfile
-import uuid
+from session_user import current_user
 
-from flask import (Blueprint, render_template, request, jsonify, session, url_for)
+from flask import (Blueprint, render_template, request, jsonify, url_for)
 
 from .engine import QuestionConfig, generate_batch, generate_to_db, grade_batch, grade_one
 from .db import MathDB
@@ -23,11 +23,6 @@ bp = Blueprint(
 
 db = MathDB()
 
-
-def current_user():
-    if 'uid' not in session:
-        session['uid'] = uuid.uuid4().hex[:16]
-    return session['uid']
 
 
 # ---------------- 页面路由 ----------------

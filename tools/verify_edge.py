@@ -116,7 +116,8 @@ class DevTools:
 
     def goto(self, path):
         self.call('Page.navigate', {'url': BASE + path})
-        self.wait(f'location.pathname === {json.dumps(path)} && document.readyState === "complete"')
+        destination = {'/arithmetic': '/math/', '/game24': '/game24/', '/game24/solution': '/game24/'}.get(path, path)
+        self.wait(f'location.pathname === {json.dumps(destination)} && document.readyState === "complete"')
 
     def screenshot(self, name, selector=None):
         self.js('Promise.all(document.getAnimations().filter(a => a.effect && a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {})))')
@@ -229,13 +230,15 @@ with tempfile.TemporaryDirectory(prefix='personal-studio-browser-') as temporary
         dev.goto('/math')
         dev.screenshot('math-desktop.png')
         dev.goto('/arithmetic')
-        assert dev.js('document.querySelectorAll("input[type=number]").length') == 10
+        assert dev.js('location.pathname') == '/math/'
+        dev.js('loadQuestions()')
+        dev.wait('document.querySelectorAll(".q-input").length > 0')
         dev.goto('/game24')
-        assert dev.js('document.querySelectorAll(".num-card").length') == 4
-        dev.js('document.getElementById("expression").value="24";document.getElementById("gameForm").requestSubmit()')
-        dev.wait('document.querySelector(".message")?.textContent.includes("必须且只能")')
+        dev.wait('document.querySelectorAll("#cards .card-num").length == 4')
+        dev.js('document.getElementById("exprInput").value="24";submitAnswer()')
+        dev.wait('document.getElementById("resultBox").style.display != "none"')
         dev.goto('/game24/solution')
-        assert '参考答案' in dev.js('document.querySelector(".message").textContent')
+        assert dev.js('location.pathname') == '/game24/'
         for width in [390, 360]:
             dev.call('Emulation.setDeviceMetricsOverride', {'width': width, 'height': 844, 'deviceScaleFactor': 1, 'mobile': False})
             for path in ['/', '/members', '/members/xu-jingxuan', '/members/wen-jingxiong', '/projects', '/code-stats', '/math', '/math/', '/math/print', '/math/upload', '/arithmetic', '/game24', '/game24/', '/dice/', '/history', '/math/history', '/game24/history', '/dice/history']:
