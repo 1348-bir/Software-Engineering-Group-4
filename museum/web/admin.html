@@ -1,0 +1,8 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>观 · 展｜展播管理</title><link rel="stylesheet" href="/museum/control.css"></head><body>
+<header><a href="/museum/">观 · 展 <small>MUSEUM CONTROL</small></a><a href="/museum/">返回本地播放器 ↗</a></header>
+<main><p class="kicker">EXHIBITION CONTROL</p><h1>展播管理</h1><p>上传素材、登记屏幕，再按场馆和时段发布。所有时间以服务器所在电脑为准。</p>
+<nav id="tabs" aria-label="管理类别"><button data-tab="assets">01 素材库</button><button data-tab="terminals">02 终端</button><button data-tab="plans">03 播放计划</button><button data-tab="tickers">04 滚动字幕</button></nav>
+<p id="message" role="status"></p>
+<div class="workspace"><section class="panel"><h2 id="listTitle"></h2><div id="list"></div></section><section class="panel"><h2 id="formTitle"></h2>
+<form id="upload" hidden><label>上传图片、视频或文本<input name="file" type="file" accept="image/*,video/*,.txt,.md" multiple required></label><button class="primary">上传到素材库</button></form>
+<form id="editor"></form></section></div></main><script src="/museum/admin.js"></script></body></html>

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 from code_stats import analyze_uploads, MAX_REQUEST, MAX_UPLOAD, MAX_FILES
 from url_source import analyze_url
@@ -8,6 +9,8 @@ app.config.update(MAX_CONTENT_LENGTH=MAX_REQUEST, MAX_FORM_PARTS=1200,
                   SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
 app.config['STUDIO_ADMIN_TOKEN'] = os.environ.get('STUDIO_ADMIN_TOKEN', '')
+app.config['MUSEUM_ADMIN_PASSWORD'] = os.environ.get('MUSEUM_ADMIN_PASSWORD', '')
+app.config['MUSEUM_DATA_DIR'] = os.environ.get('MUSEUM_DATA_DIR') or str(Path(__file__).resolve().parent / 'museum' / 'data')
 
 
 @app.get('/')
@@ -89,5 +92,12 @@ app.register_blueprint(dice_bp)
 from group_site import register_group_routes
 register_group_routes(app)
 
+from museum import bp as museum_bp
+app.register_blueprint(museum_bp)
+
+
+def run():
+    app.run(host=os.environ.get('STUDIO_HOST', '127.0.0.1'), port=int(os.environ.get('PORT', '5050')), debug=False)
+
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=int(os.environ.get('PORT', '5050')), debug=False)
+    run()

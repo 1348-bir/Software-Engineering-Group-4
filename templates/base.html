@@ -16,6 +16,7 @@
       <a class="{{ 'active' if request.path == '/' }}" href="/"><span>⌂</span>小组主页</a>
       <a class="{{ 'active' if request.path.startswith('/members') }}" href="/members"><span>♧</span>小组成员</a>
       <a class="{{ 'active' if request.path == '/projects' }}" href="/projects"><span>▦</span>小组项目</a>
+      <a href="{{ url_for('museum.index') }}"><span>▷</span>博物馆展播</a>
       <a class="{{ 'active' if request.path == '/code-stats' }}" href="/code-stats"><span>≡</span>代码统计</a>
       <a class="{{ 'active' if request.path.startswith(('/math', '/arithmetic', '/game24')) }}" href="/math"><span>✧</span>趣味数学</a>
       <a class="{{ 'active' if request.path == '/history' }}" href="/history"><span>◷</span>练习记录</a>

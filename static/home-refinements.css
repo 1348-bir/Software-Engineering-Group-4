@@ -134,3 +134,5 @@
 @media(max-width:380px) {
   .home-page .greeting-star { display: none; }
 }
+
+.project-museum{grid-column:1/-1;background:linear-gradient(110deg,#f1f5ee,#e1ece6);border-color:#d8e4dc}

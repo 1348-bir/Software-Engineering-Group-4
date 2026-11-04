@@ -1,6 +1,7 @@
 {% extends 'base.html' %}{% block title %}小组项目{% endblock %}{% block crumb %}小组项目{% endblock %}{% block content %}<div class="page-heading"><div><div class="eyebrow">OUR PROJECTS</div><h1>把不同的想法，连成一个空间。</h1><p>代码分析、数学练习与趣味游戏，每项功能保留一套实现，统一入口。</p></div><a class="button ghost" href="{{ team.repository }}" target="_blank" rel="noopener noreferrer">查看仓库 ↗</a></div><div class="tool-grid">
 {% for name, description, target, badge in [
 ('代码统计实验室','支持多语言源码、文件夹、ZIP、公开 GitHub 与网址导入；上限 1 GB，可导出 CSV。','/code-stats','CODE'),
+('博物馆多媒体播放器','本地播放图文与视频；展播后台支持滚动字幕、终端分组、排期及分屏。',url_for('museum.index'),'MUSEUM'),
 ('定制数学练习','自选数值范围、乘除、括号、负数及分数，自动批改并保存个人练习记录。','/math/','CUSTOM'),
 ('练习卷打印','根据配置生成练习版或答案版，可调整题数、列数与行距。','/math/print','PRINT'),
 ('图片算式识别','保留原仓库的 OCR 入口；安装可选识别依赖后可使用图片识别。','/math/upload','OCR'),
