@@ -67,7 +67,7 @@ function drawEditor(item=null){
   item??={};
   let html=field('name','名称',item.name,'text','required maxlength="120"');
   if(tab==='assets'){
-    html+=field('category','分类',item.category,'text','maxlength="80"')+field('duration','图片与文本展示时长（秒）',item.duration,'number','required min="1" max="3600"')+
+    html+=field('category','分类',item.category,'text','maxlength="80"')+field('duration',item.page_count?'每页展示时长（秒）':'图片与文本展示时长（秒）',item.duration,'number','required min="1" max="3600"')+
       area('subtitle','字幕（文字叠加，视频也支持粘贴 WebVTT 文本）',item.subtitle)+field('watermark','文字水印',item.watermark,'text','maxlength="100"');
   }else if(tab==='terminals'){
     html+=field('id','终端编号（链接中的 id）',item.id,'text','required pattern="[A-Za-z0-9_\\-]{1,48}" '+(item.id?'readonly':''))+field('group','终端分组（输入相同名称即可归为同组）',item.group,'text','required maxlength="80"');
@@ -96,8 +96,10 @@ function drawList(){
     }
     const node=document.createElement('article');node.className='entry';const body=document.createElement('div'),title=document.createElement('strong'),detail=document.createElement('p');
     title.textContent=item.name;detail.textContent=tab==='assets'?item.category+' · '+item.mime+' · '+Math.ceil(item.size/1024)+' KB':tab==='terminals'?item.group+' · '+item.id:(item.enabled?'已启用':'已停用')+' · '+(targets().find(([k])=>k===item.target)?.[1]||item.target)+' · '+repeatLabels[item.rule.repeat]+(item.rule.from?' · '+item.rule.from+' 至 '+item.rule.until+' · '+item.rule.start+'–'+item.rule.end:'');
+    if(tab==='assets'&&item.page_count)detail.textContent=item.category+' · '+item.page_count+' 页 · 每页 '+item.duration+' 秒';
     body.append(title,detail);
     if(tab==='terminals'||tab==='assets'){const link=document.createElement('a');link.textContent=tab==='terminals'?'打开终端 ↗':'查看原文件 ↗';link.target='_blank';link.rel='noopener';link.href=tab==='terminals'?'/museum/terminal?id='+encodeURIComponent(item.id):'/museum/media/'+item.id;body.append(link);}
+    if(tab==='assets'&&item.page_count){const preview=document.createElement('a');preview.href='/museum/terminal?document='+encodeURIComponent(item.id);preview.textContent='　循环预览 ↗';preview.target='_blank';preview.rel='noopener';body.append(preview);}
     const controls=document.createElement('div'),edit=document.createElement('button'),del=document.createElement('button');
     edit.textContent='编辑';edit.onclick=()=>drawEditor(item);del.textContent='删除';
     del.onclick=()=>{if(confirm('删除「'+item.name+'」？'))task(async()=>{await api(tab,'DELETE',{id:item.id});await refresh();message('已删除。');});};
@@ -109,7 +111,7 @@ async function refresh(){catalog=await api('catalog');switchTab(tab);}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 $('upload').onsubmit=e=>{e.preventDefault();const form=e.target,files=[...form.elements.file.files];task(async()=>{
   let success=0;const failures=[];
-  for(const file of files){try{message('正在上传 '+file.name+'…');await api('upload?name='+encodeURIComponent(file.name),'POST',file,true);success++;}catch(err){failures.push(file.name+'：'+err.message);}}
+  for(const file of files){try{message(/\.(pptx?|docx?)$/i.test(file.name)?'正在转换 '+file.name+'，请保持页面打开…':'正在上传 '+file.name+'…');await api('upload?name='+encodeURIComponent(file.name),'POST',file,true);success++;}catch(err){failures.push(file.name+'：'+err.message);}}
   form.reset();await refresh();message('已上传 '+success+' 份素材。'+failures.join('；'),!!failures.length);
 });};
 $('editor').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target), value=Object.fromEntries(f);

@@ -97,6 +97,39 @@ class MuseumIntegration(unittest.TestCase):
         self.assertEqual(self.client.delete('/museum/api/admin/assets',json={'id':a['id']},
                          headers=self.auth).status_code,400)
 
+    def test_document_import_preview_pages_and_removal(self):
+        def render_fixture(source, pages):
+            self.assertEqual(source.suffix, '.pptx')
+            pages.mkdir()
+            for page in (1, 2):
+                (pages / f'{page}.png').write_bytes(b'converted PNG '+bytes([page]))
+            return 2
+
+        with patch('museum.render', side_effect=render_fixture):
+            document = self.upload('gallery.pptx', b'example presentation')
+        self.assertEqual(document['page_count'], 2)
+        key = document['id']
+        preview = self.client.get('/museum/api/document/'+key).json
+        self.assertEqual(preview['regions'][0][0]['page_count'], 2)
+        with self.client.get(f'/museum/media/{key}/page/2') as response:
+            self.assertEqual(response.mimetype, 'image/png')
+            self.assertEqual(response.data, b'converted PNG \x02')
+        self.assertEqual(self.client.get(f'/museum/media/{key}/page/3').status_code, 404)
+        self.assertEqual(self.client.get(f'/museum/media/{key}').status_code, 401)
+        with self.client.get(f'/museum/media/{key}', headers=self.auth) as response:
+            self.assertIn('attachment', response.headers['Content-Disposition'])
+        self.assertEqual(self.client.delete('/museum/api/admin/assets',json={'id':key},
+                         headers=self.auth).status_code,200)
+        self.assertFalse((Path(self.tmp.name)/'media'/(key+'-pages')).exists())
+
+    def test_failed_document_conversion_does_not_publish_asset(self):
+        with patch('museum.render', side_effect=ValueError('无法转换')):
+            response = self.client.post('/museum/api/admin/upload?name=bad.docx',
+                                        data=b'invalid',headers=self.auth)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(list((Path(self.tmp.name)/'media').iterdir()), [])
+        self.assertEqual(self.client.get('/museum/api/admin/catalog',headers=self.auth).json['assets'], {})
+
     def test_weekly_schedule_uses_start_day_across_midnight(self):
         item={'enabled':True,'rule':rule_for({'repeat':'weekly','from':'2026-11-02',
                'until':'2026-11-02','start':'22:00','end':'02:00','days':[0]})}

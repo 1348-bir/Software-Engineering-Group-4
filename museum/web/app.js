@@ -77,8 +77,9 @@ function clear(){if(state.emergency)return;state.playing=false;state.items.forEa
 function defaultSort(){const selected=current();const order={video:0,text:1,image:2};state.items.sort((a,b)=>order[a.type]-order[b.type]);state.index=state.items.indexOf(selected);renderPlaylist();}
 async function addFiles(files){
   if(state.emergency){toast('请先结束紧急插播。');return;}
-  let added=0;
+  let added=0, officeSkipped=0;
   for(const file of files){
+    if(/\.(pptx?|docx?)$/i.test(file.name)){officeSkipped++;continue;}
     if(file.size>1024**3){toast('单文件上限为 1 GB：'+file.name);continue;}
     if(/\.json$/i.test(file.name)){try{if(file.size>5*1024**2)throw Error('展览方案过大');const plan=JSON.parse(await file.text());if(plan.format!=='museum-exhibition-v1'||!Array.isArray(plan.items))throw Error('不是本项目的展览方案');settings={...settings,...cleanSettings(plan.settings)};for(const entry of plan.items.slice(0,500)){if(entry.type==='text'&&typeof entry.text==='string'){state.items.push({type:'text',title:String(entry.title||'文本').slice(0,200),text:entry.text.slice(0,1000000),settings:cleanSettings(entry.settings)});added++;}}if(plan.items.some(x=>x.type!=='text'))toast('方案中的图片与视频请重新导入本地原文件。');}catch(e){toast('方案导入失败：'+e.message);}continue;}
     let type=file.type.startsWith('video/')?'video':file.type.startsWith('image/')?'image':/\.(txt|md)$/i.test(file.name)?'text':null;
@@ -88,7 +89,7 @@ async function addFiles(files){
     if(type==='text')item.text=await file.text();else{item.url=URL.createObjectURL(file);if(type==='image'){try{const img=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=item.url;});item.width=img.naturalWidth;item.height=img.naturalHeight;}catch(_){release(item);toast('图片无法读取：'+file.name);continue;}}}
     state.items.push(item);added++;
   }
-  defaultSort();if(state.index<0&&state.items.length)select(0);syncControls();renderPlaylist();toast(`已导入 ${added} 项素材；默认顺序：视频 → 文本 → 长图。`);
+  defaultSort();if(state.index<0&&state.items.length)select(0);syncControls();renderPlaylist();toast(`已导入 ${added} 项素材。`+(officeSkipped?' PPT 和 Word 文档请在「展播管理 → 素材库」上传。':' 默认顺序：视频 → 文本 → 长图。'));
 }
 function demo(){
   if(state.emergency)return;clear();const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="2200"><rect width="1000" height="2200" fill="#e9dfc9"/><path d="M0 800Q200 500 400 740T1000 600V1100H0" fill="#9eac91"/><path d="M0 1000Q300 650 650 1000T1000 850V1400H0" fill="#637e69"/><path d="M0 1300Q300 1100 500 1400T1000 1200V1800H0" fill="#3f5d50"/><g fill="#334c40" font-family="serif" text-anchor="middle"><text x="500" y="220" font-size="74">山水之间</text><text x="500" y="300" font-size="25">示例策展长卷 · 原创示意图</text><text x="500" y="1950" font-size="42">移步换景 · 观照自然</text><text x="500" y="2020" font-size="24">开启逐页展示，沿长卷慢慢阅读</text></g></svg>`;

@@ -4,12 +4,15 @@ import hmac
 import os
 from pathlib import Path
 import secrets
+import shutil
 import threading
+import tempfile
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_file, send_from_directory
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from .catalog import LIMIT, MEDIA, ROOT, Store, feed, string, update
+from .documents import DOCUMENT_LIMIT, FORMATS, render
 
 bp = Blueprint('museum', __name__, url_prefix='/museum')
 WEB = ROOT / 'web'
@@ -42,7 +45,7 @@ def admin_auth():
 @bp.after_request
 def response_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    if request.endpoint in {'museum.admin', 'museum.admin_api', 'museum.terminal_feed'}:
+    if request.endpoint in {'museum.admin', 'museum.admin_api', 'museum.terminal_feed', 'museum.document_preview'}:
         response.headers['Cache-Control'] = 'no-store'
     return response
 
@@ -88,19 +91,47 @@ def media(key):
         asset = catalog.data['assets'].get(key)
     if asset is None:
         return jsonify(error='素材不存在'), 404
+    if asset['ext'] in FORMATS:
+        error = admin_auth()
+        if error is not None:
+            return error
     path = catalog.media / (key + asset['ext'])
     if not path.is_file():
         return jsonify(error='素材文件不存在'), 404
-    return send_file(path, mimetype=asset['mime'], conditional=True, max_age=0)
+    return send_file(path, mimetype=asset['mime'], conditional=True, max_age=0,
+                     as_attachment=asset['ext'] in FORMATS, download_name=asset['name'] + asset['ext']
+                     if asset['ext'] in FORMATS and not asset['name'].lower().endswith(asset['ext']) else asset['name'])
+
+
+@bp.get('/media/<key>/page/<int:page>')
+def document_page(key, page):
+    catalog = store()
+    with catalog.lock:
+        item = catalog.data['assets'].get(key)
+    if item is None or not 1 <= page <= item.get('page_count', 0):
+        return jsonify(error='文档页面不存在'), 404
+    return send_from_directory(catalog.media / (key + '-pages'), f'{page}.png',
+                               mimetype='image/png', max_age=3600)
+
+
+@bp.get('/api/document/<key>')
+def document_preview(key):
+    catalog = store()
+    with catalog.lock:
+        item = catalog.data['assets'].get(key)
+    if item is None or not item.get('page_count'):
+        return jsonify(error='文档不存在'), 404
+    return jsonify(terminal={'name':item['name'], 'group':'文档预览'}, plan=key, layout='single',
+                   regions=[[dict(item, url='/museum/media/'+key)]], tickers=[])
 
 
 def upload(catalog):
     name = string(request.args.get('name', ''), 240, True)
     ext = Path(name).suffix.lower()
-    mime = MEDIA.get(ext)
+    mime = MEDIA.get(ext) or FORMATS.get(ext)
     if mime is None:
         raise ValueError('不支持该文件格式')
-    cap = 5 * 1024**2 if mime == 'text/plain' else LIMIT
+    cap = DOCUMENT_LIMIT if ext in FORMATS else 5 * 1024**2 if mime == 'text/plain' else LIMIT
     request.max_content_length = cap
     size = request.content_length
     if size is None or size <= 0:
@@ -109,10 +140,11 @@ def upload(catalog):
         raise RequestEntityTooLarge()
     key = secrets.token_hex(12)
     path = catalog.media / (key + ext)
-    temp = path.with_suffix(ext + '.tmp')
+    pages_path = catalog.media / (key + '-pages')
     item = {'id':key,'name':name,'ext':ext,'mime':mime,'size':size,'category':'未分类',
             'subtitle':'','watermark':'','duration':10}
-    try:
+    with tempfile.TemporaryDirectory(prefix='upload-', dir=catalog.directory) as scratch:
+        temp = Path(scratch) / ('source' + ext)
         remain = size
         with temp.open('xb') as fh:
             while remain:
@@ -123,21 +155,25 @@ def upload(catalog):
                 remain -= len(chunk)
         if mime == 'text/plain':
             temp.read_text(encoding='utf-8-sig')
+        if ext in FORMATS:
+            preview = Path(scratch) / 'pages'
+            item['page_count'] = render(temp, preview)
         with catalog.lock:
-            os.replace(temp, path)
             try:
+                os.replace(temp, path)
+                if 'page_count' in item:
+                    os.replace(preview, pages_path)
                 catalog.commit({**catalog.data, 'assets':{**catalog.data['assets'], key:item}})
             except OSError:
                 path.unlink(missing_ok=True)
+                shutil.rmtree(pages_path, ignore_errors=True)
                 raise
-    finally:
-        temp.unlink(missing_ok=True)
     return jsonify(item), 201
 
 
 @bp.errorhandler(413)
 def too_large(_error):
-    return jsonify(error='素材上传超过上限：媒体 1 GB，文本 5 MB，管理请求 1 MB'), 413
+    return jsonify(error='素材上传超过上限：图片与视频 1 GB，Office 文档 50 MB，文本 5 MB，管理请求 1 MB'), 413
 
 
 @bp.route('/api/admin/<kind>', methods=['GET', 'POST', 'DELETE'])
@@ -174,6 +210,8 @@ def admin_api(kind):
             if request.method == 'DELETE' and kind == 'assets':
                 try:
                     (catalog.media / (item['id'] + item['ext'])).unlink(missing_ok=True)
+                    if item.get('page_count'):
+                        shutil.rmtree(catalog.media / (item['id'] + '-pages'), ignore_errors=True)
                 except OSError:
                     current_app.logger.warning('Could not remove museum media %s', item['id'])
         return jsonify(item)
