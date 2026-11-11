@@ -34,7 +34,7 @@ python3 -m venv .venv
 | `/members` | 成员列表、各成员介绍和独立头像上传 |
 | `/projects` | 全部小组项目入口 |
 | `/code-stats` | 文件、文件夹、ZIP、源码网址与公开 GitHub 仓库统计、搜索及 CSV 导出 |
-| `/museum/` | 博物馆多媒体播放器，支持本地图片、视频、文本与紧急插播 |
+| `/museum/` | 多媒体播放器，支持本地图片、视频、文本与紧急插播 |
 | `/museum/admin` | 展播管理：素材、终端分组、分屏播放计划与滚动字幕 |
 | `/museum/terminal?id=编号` | 受管屏幕，根据终端、分组和排期播放 |
 | `/math` | 数学工具总览 |
@@ -49,9 +49,9 @@ python3 -m venv .venv
 
 原来的 `/profile`、`/projects/code-counter`、`/projects/github-counter` 链接仍能访问；旧统计表单 POST 也接入新的统计引擎。文敬雄原有详细档案保留在其成员页面的链接中。
 
-## 博物馆展播
+## 多媒体播放器
 
-从小组首页或项目页进入「博物馆多媒体播放器」。本地播放无需后台密码。需要启用集中管理时，先在 PowerShell 中为本次启动设置展播密码：
+从小组首页或项目页进入「多媒体播放器」。本地播放无需后台密码。需要启用集中管理时，先在 PowerShell 中为本次启动设置展播密码：
 
 ```powershell
 $env:MUSEUM_ADMIN_PASSWORD = '请替换为你自己的密码'
