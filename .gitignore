@@ -50,3 +50,4 @@ history.db
 *.db-wal
 *.db-shm
 previews/
+museum/data/

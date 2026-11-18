@@ -6,7 +6,7 @@
 - 成员页与旧入口兼容路由由 ``group_site`` 注册。
 """
 import os
-
+from pathlib import Path
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 from code_stats import (
@@ -27,6 +27,8 @@ app.config.update(MAX_CONTENT_LENGTH=MAX_REQUEST, MAX_FORM_PARTS=1200,
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(32)
 # 管理员口令默认为空，未设置时头像上传与题库生成接口直接 403。
 app.config['STUDIO_ADMIN_TOKEN'] = os.environ.get('STUDIO_ADMIN_TOKEN', '')
+app.config['MUSEUM_ADMIN_PASSWORD'] = os.environ.get('MUSEUM_ADMIN_PASSWORD', '')
+app.config['MUSEUM_DATA_DIR'] = os.environ.get('MUSEUM_DATA_DIR') or str(Path(__file__).resolve().parent / 'museum' / 'data')
 
 
 @app.get('/')
@@ -128,6 +130,12 @@ from group_site import register_group_routes  # noqa: E402
 
 register_group_routes(app)
 
+from museum import bp as museum_bp
+app.register_blueprint(museum_bp)
+
+
+def run():
+    app.run(host=os.environ.get('STUDIO_HOST', '127.0.0.1'), port=int(os.environ.get('PORT', '5050')), debug=False)
+
 if __name__ == '__main__':
-    # 默认只监听本机，端口可用 PORT 环境变量覆盖。
-    app.run(host='127.0.0.1', port=int(os.environ.get('PORT', '5050')), debug=False)
+    run()
