@@ -101,6 +101,8 @@ $env:STUDIO_ADMIN_TOKEN = '<替换为你自己的随机管理员密钥>'
 
 ## 可选 OCR 与题库
 
+Windows 10/11 可直接使用系统自带 OCR：未安装 PaddleOCR 或其初始化失败时自动回退，不需要切换 Python 版本或下载 Paddle 模型。本机需已安装至少一种 OCR 语言（Windows 设置中的语言选项）。识别在本机完成；上传 PNG/JPG 单道打印体算式更可靠，手写、模糊图像可能识别失败。非 Windows 环境仍需安装以下可选 PaddleOCR 依赖。
+
 OCR 识别单道算式图片，支持 PaddleOCR 2.x 和 3.x；不把多道题拼成一题。识别依赖与基础运行环境分开安装。推荐为 OCR 创建 Python 3.11/3.12 环境，再执行 `python -m pip install -r requirements-ocr.txt`，并用该环境运行 `app.py`。首次识别可能下载模型，需要网络连接；仅安装基础 requirements.txt 不会启用 OCR。页面会显示依赖缺失、引擎失败或未找到有效算式的具体提示。
 
 基础功能只依赖 `requirements.txt`。图片识别沿用原仓库的 PaddleOCR 适配；未安装兼容的 PaddleOCR/PaddlePaddle 环境时会提示识别不可用，其他功能正常。不同 Python 版本的 OCR 包兼容性不同，不作为默认依赖。

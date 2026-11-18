@@ -1,13 +1,17 @@
 # math_practice/ocr.py
 """可选的图片算式识别。
 
-依赖 PaddleOCR；没安装时 ``recognize()`` 返回空字符串，
-前端自动降级为手动输入，不影响其他功能。
+安装 PaddleOCR 时优先使用；Windows 在依赖缺失或引擎失败时
+回退到系统自带 OCR，无需额外 Python 包，失败时返回可读错误。
 
 OCR 结果通常很脏（全角符号、乘号写成 x、末尾带「= 24」），
 ``normalize()`` 负责把它清洗成表达式引擎能接受的写法。
 """
 import re
+import json
+import os
+import subprocess
+from pathlib import Path
 import unicodedata
 from importlib.metadata import version
 
@@ -23,7 +27,7 @@ def _check_available():
     try:
         from paddleocr import PaddleOCR  # noqa: F401  仅用于探测依赖
         _available = True
-    except ImportError:
+    except (ImportError, OSError, RuntimeError):
         _available = False
     return _available
 
@@ -60,7 +64,7 @@ def normalize(text):
     return text
 
 
-def recognize(image_path):
+def _paddle_lines(image_path):
     """识别图片中的算式，返回清洗后的表达式字符串；失败返回空串。"""
     if not _check_available():
         raise RuntimeError('OCR 引擎未安装。请使用 Python 3.11 或 3.12 的独立环境安装 requirements-ocr.txt 后启动应用。')
@@ -80,16 +84,46 @@ def recognize(image_path):
             for block in engine.ocr(image_path, cls=True) or []:
                 for item in block or []:
                     lines.append(item[1][0])
-        from common.arithmetic import solve
-        candidates = []
-        for line in lines:
-            expr = normalize(line)
-            if expr and solve(expr)[0]:
-                candidates.append(expr)
-        if len(candidates) > 1:
-            raise RuntimeError('检测到多道算式，请裁剪为单道题后重试。')
-        return candidates[0] if candidates else ''
+        return lines
     except RuntimeError:
         raise
     except Exception as exc:
         raise RuntimeError('OCR 引擎初始化或识别失败，请检查依赖、模型下载和图片格式。') from exc
+
+
+def _windows_lines(image_path):
+    """Use installed Windows OCR locally, without Python ML packages or uploads."""
+    try:
+        result = subprocess.run(
+            ['powershell.exe', '-NoProfile', '-NonInteractive', '-File',
+             str(Path(__file__).with_name('windows_ocr.ps1')),
+             '-ImagePath', str(Path(image_path).resolve())],
+            capture_output=True, text=True, encoding='utf-8', timeout=30,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), check=True)
+        return json.loads(result.stdout.lstrip('\ufeff'))['lines']
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError) as exc:
+        raise RuntimeError('Windows OCR 无法读取图片，请上传清晰的 PNG/JPG，并确认系统安装了 OCR 语言包。其他系统请安装 requirements-ocr.txt。') from exc
+
+
+def recognize(image_path):
+    """Prefer Paddle when installed; use native Windows OCR if absent or broken."""
+    if _check_available():
+        try:
+            lines = _paddle_lines(image_path)
+        except RuntimeError:
+            if os.name != 'nt':
+                raise
+            lines = _windows_lines(image_path)
+    elif os.name == 'nt':
+        lines = _windows_lines(image_path)
+    else:
+        raise RuntimeError('OCR 引擎未安装，请安装 requirements-ocr.txt。')
+    from common.arithmetic import solve
+    candidates = []
+    for line in lines:
+        expr = normalize(line)
+        if expr and solve(expr)[0]:
+            candidates.append(expr)
+    if len(candidates) > 1:
+        raise RuntimeError('检测到多道算式，请裁剪为单道题后重试。')
+    return candidates[0] if candidates else ''
