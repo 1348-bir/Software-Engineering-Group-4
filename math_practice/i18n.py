@@ -1,4 +1,10 @@
 # math_practice/i18n.py
+"""数学练习页面的多语言文案表（中文 / English / 日本語）。
+
+模板通过 ``t('key')`` 取词，语言由 ``get_lang()`` 决定：
+优先 ``?lang=`` 查询参数，其次浏览器 Accept-Language，最后回退英文。
+某个键漏翻时直接返回键名本身，便于发现缺词。
+"""
 TRANSLATIONS = {
     'zh': {
         'title': '数学练习系统',
@@ -148,6 +154,7 @@ TRANSLATIONS = {
 
 
 def get_lang(request):
+    """决定本次请求使用哪种语言：?lang= 优先，其次浏览器偏好，默认英文。"""
     lang = request.args.get('lang')
     if lang in TRANSLATIONS:
         return lang
@@ -160,6 +167,7 @@ def get_lang(request):
 
 
 def t(key, lang='zh', **kwargs):
+    """取一条文案并填充占位符；语言或键不存在时依次回退到中文、键名。"""
     text = TRANSLATIONS.get(lang, TRANSLATIONS['zh']).get(key, key)
     if kwargs:
         try:
@@ -170,4 +178,5 @@ def t(key, lang='zh', **kwargs):
 
 
 def translator(lang):
+    """返回绑定好语言的取词函数，模板里只写 ``t('key')`` 即可。"""
     return lambda key, **kw: t(key, lang, **kw)

@@ -1,5 +1,11 @@
 # game_24/routes.py
+"""24 点游戏蓝图：页面、出题、提交判题与历史查询。
+
+蓝图前缀 ``/game24``；判题逻辑在 engine，记录在 db，
+所有查询都按浏览器会话标识过滤。
+"""
 import os
+
 from session_user import current_user
 
 from flask import Blueprint, render_template, request, jsonify
@@ -19,14 +25,15 @@ bp = Blueprint(
     static_url_path='/static/game_24',
 )
 
+# 模块级单例：导入蓝图时就建好表。
 db = Game24DB()
-
 
 
 # ---------------- 页面路由 ----------------
 
 @bp.route('/')
 def play():
+    """游戏页；语言由查询参数或浏览器偏好决定。"""
     lang = get_lang(request)
     tr = translator(lang)
     return render_template('game_24/play.html', t=tr, lang=lang)
@@ -34,6 +41,7 @@ def play():
 
 @bp.route('/history')
 def history():
+    """历史页：最近 100 次作答与正确率。"""
     lang = get_lang(request)
     tr = translator(lang)
     uid = current_user()
@@ -47,18 +55,19 @@ def history():
 
 @bp.route('/api/puzzle')
 def api_puzzle():
-    """生成一道新题（4 个数字）"""
+    """生成一道新题：4 个 1..13 的数字，默认保证有解。"""
     nums = make_puzzle(max_value=13, ensure_solvable=True)
     return jsonify({'nums': nums})
 
 
 @bp.route('/api/submit', methods=['POST'])
 def api_submit():
-    """提交用户表达式，批改"""
+    """提交用户表达式并判定；结果同时写入历史。"""
     data = request.get_json() or {}
     nums = data.get('nums', [])
     expr = data.get('expr', '').strip()
 
+    # 题目必须正好是 4 个数字，否则视为非法请求。
     if not nums or len(nums) != 4:
         return jsonify({'error': 'invalid nums'}), 400
 
@@ -70,12 +79,13 @@ def api_submit():
     return jsonify({
         'correct': correct,
         'reason': reason,
-        'standard_answers': std_answers[:5],   # 最多返回 5 个参考答案
+        'standard_answers': std_answers[:5],   # 最多返回 5 个参考答案，避免响应过大
     })
 
 
 @bp.route('/api/history')
 def api_history():
+    """历史轮询接口：返回 ``after`` 之后的新记录与统计。"""
     uid = current_user()
     after_id = int(request.args.get('after', 0))
     rows = db.recent_attempts(uid, limit=50)

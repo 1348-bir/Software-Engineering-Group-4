@@ -1,5 +1,9 @@
-"""Compatibility entry point for the integrated group website."""
+"""兼容入口：部分文档或旧习惯用 ``python main.py`` 启动。
+
+它不创建第二个应用，只是复用 ``app.py`` 里已经组装好的 app 对象。
+"""
 import os
+
 from app import app
 
 if __name__ == '__main__':

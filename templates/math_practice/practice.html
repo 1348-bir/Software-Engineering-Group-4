@@ -12,7 +12,8 @@
 
         .q-item {
             display: grid;
-            grid-template-columns: 44px 1fr 140px 72px;
+            grid-template-columns: 30px auto 120px 72px;
+            justify-content: start;
             gap: 12px;
             align-items: center;
             padding: 12px 16px;
@@ -155,14 +156,16 @@
 
         @media (max-width: 720px) {
             .q-item {
-                grid-template-columns: 34px 1fr 60px;
-                grid-template-areas: 'no expr mark' 'input input input';
+                grid-template-columns: 30px minmax(0, 1fr) 50px;
+                justify-content: stretch;
+                grid-template-areas: 'no expr mark' '. input mark';
                 row-gap: 10px;
             }
             .q-no { grid-area: no; }
             .q-expr { grid-area: expr; }
             .q-mark { grid-area: mark; }
-            .q-input { grid-area: input; }
+            .q-input { grid-area: input; width: 120px; max-width: 100%; box-sizing: border-box; }
+            .q-expr { overflow-wrap: anywhere; }
             .stats { flex-direction: column; gap: 10px; }
         }
     </style>

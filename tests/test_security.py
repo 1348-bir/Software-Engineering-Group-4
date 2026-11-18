@@ -138,7 +138,7 @@ vm.runInContext(input.helper + '\n' + input.script, context);
                 script = next(s for s in re.findall(r'<script>(.*?)</script>', html, re.S) if 'pollHistory' in s)
                 helper_path = Path(app.root_path) / 'static' / 'history.js'
                 result = subprocess.run(['node', '-e', runner], input=json.dumps({
-                    'script': script, 'helper': helper_path.read_text() if helper_path.exists() else '',
+                    'script': script, 'helper': helper_path.read_text(encoding='utf-8') if helper_path.exists() else '',
                     'payload': payload, 'data': {'attempts': [dict(id=1, is_correct=0, created_at='', **row)],
                         'latest_id': 1, 'stats': {'total': 1, 'correct': 0, 'accuracy': 0}}}),
                     text=True, capture_output=True, timeout=10)

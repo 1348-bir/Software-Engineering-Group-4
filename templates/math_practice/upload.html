@@ -173,6 +173,17 @@
     });
 
     async function uploadImage() {
+        try {
+            await performUpload();
+        } catch (error) {
+            const box = document.getElementById('resultBox');
+            box.style.display = 'block';
+            document.getElementById('rExpr').textContent = '连接或返回结果异常，请稍后重试。';
+            document.getElementById('rStd').textContent = '-';
+            document.getElementById('rResult').textContent = '-';
+        }
+    }
+    async function performUpload() {
         const fileInput = document.getElementById('imageInput');
         if (!fileInput.files.length) {
             alert('请先选择图片');
@@ -193,7 +204,7 @@
         box.style.display = 'block';
 
         if (data.error && !data.expr) {
-            document.getElementById('rExpr').textContent = '(识别失败)';
+            document.getElementById('rExpr').textContent = data.error || '未识别到有效算式';
             document.getElementById('rStd').textContent = '-';
             document.getElementById('rResult').textContent = '-';
             return;
