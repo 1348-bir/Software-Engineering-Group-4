@@ -10,3 +10,33 @@ function appendHistoryCell(row, value, className = '') {
     row.appendChild(cell);
     return cell;
 }
+
+/** Share polling state and DOM updates; pages supply their row and stat formats. */
+function createHistoryPoller({url, latestId, renderRow, stats}) {
+    let inFlight = false;
+    return async function () {
+        if (inFlight) return;
+        inFlight = true;
+        try {
+            const res = await fetch(url + '?after=' + latestId);
+            const data = await res.json();
+            if (data.attempts.length > 0) {
+                const tbody = document.getElementById('historyBody');
+                if (tbody.querySelector('.empty-tip')) tbody.textContent = '';
+                data.attempts.forEach(attempt => {
+                    const row = document.createElement('tr');
+                    renderRow(row, attempt);
+                    tbody.insertBefore(row, tbody.firstChild);
+                });
+                latestId = data.latest_id;
+            }
+            Object.entries(stats).forEach(([id, format]) => {
+                document.getElementById(id).textContent = format(data.stats);
+            });
+        } catch (error) {
+            console.error('poll failed', error);
+        } finally {
+            inFlight = false;
+        }
+    };
+}

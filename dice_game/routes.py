@@ -7,6 +7,7 @@
 import os
 
 from session_user import current_user
+from common.history import history_response
 
 from flask import Blueprint, render_template, request, jsonify
 
@@ -73,13 +74,4 @@ def api_roll():
 @bp.route('/api/history')
 def api_history():
     """历史轮询接口：返回 ``after`` 之后的新记录与胜率统计。"""
-    uid = current_user()
-    after_id = int(request.args.get('after', 0))
-    rows = db.recent_attempts(uid, limit=50)
-    new_rows = [r for r in rows if r['id'] > after_id]
-    stats = db.stats(uid)
-    return jsonify({
-        'attempts': new_rows,
-        'stats': stats,
-        'latest_id': rows[0]['id'] if rows else after_id,
-    })
+    return history_response(db, current_user(), db.stats)

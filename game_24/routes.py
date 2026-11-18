@@ -7,10 +7,11 @@
 import os
 
 from session_user import current_user
+from common.history import history_response
 
 from flask import Blueprint, render_template, request, jsonify
 
-from .engine import make_puzzle, check_user_solution
+from .engine import make_puzzle, check_user_solution, valid_numbers
 from .db import Game24DB
 from .i18n import get_lang, translator
 
@@ -63,12 +64,18 @@ def api_puzzle():
 @bp.route('/api/submit', methods=['POST'])
 def api_submit():
     """提交用户表达式并判定；结果同时写入历史。"""
-    data = request.get_json() or {}
+    request.max_content_length = 16 * 1024
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error='invalid submission'), 400
     nums = data.get('nums', [])
-    expr = data.get('expr', '').strip()
+    expr = data.get('expr', '')
+    if not isinstance(expr, str) or len(expr) > 512:
+        return jsonify(error='invalid expression'), 400
+    expr = expr.strip()
 
     # 题目必须正好是 4 个数字，否则视为非法请求。
-    if not nums or len(nums) != 4:
+    if not valid_numbers(nums):
         return jsonify({'error': 'invalid nums'}), 400
 
     correct, reason, std_answers = check_user_solution(nums, expr)
@@ -86,13 +93,4 @@ def api_submit():
 @bp.route('/api/history')
 def api_history():
     """历史轮询接口：返回 ``after`` 之后的新记录与统计。"""
-    uid = current_user()
-    after_id = int(request.args.get('after', 0))
-    rows = db.recent_attempts(uid, limit=50)
-    new_rows = [r for r in rows if r['id'] > after_id]
-    stats = db.accuracy(uid)
-    return jsonify({
-        'attempts': new_rows,
-        'stats': stats,
-        'latest_id': rows[0]['id'] if rows else after_id,
-    })
+    return history_response(db, current_user(), db.accuracy)

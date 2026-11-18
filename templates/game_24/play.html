@@ -169,14 +169,10 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='language.js') }}"></script>
 <script>
     let currentNums = [];
 
-    function switchLang(lang) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-    }
 
     async function newPuzzle() {
         const res = await fetch("{{ url_for('game_24.api_puzzle') }}");

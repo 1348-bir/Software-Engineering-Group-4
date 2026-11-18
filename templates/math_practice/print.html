@@ -133,12 +133,8 @@
 
 </div>
 
+<script src="{{ url_for('static', filename='language.js') }}"></script>
 <script>
-    function switchLang(lang) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-    }
 </script>
 </body>
 </html>

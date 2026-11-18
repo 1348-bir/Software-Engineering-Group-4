@@ -288,6 +288,7 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='language.js') }}"></script>
 <script>
     const I18N = {
         question: "{{ t('question', n='{n}') }}",
@@ -295,11 +296,6 @@
     };
     let currentQuestions = [];
 
-    function switchLang(lang) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-    }
 
     // ===== 出题配置（localStorage 记忆） =====
     function readCfg() {

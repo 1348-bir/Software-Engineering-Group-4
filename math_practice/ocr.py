@@ -80,7 +80,7 @@ def recognize(image_path):
             for block in engine.ocr(image_path, cls=True) or []:
                 for item in block or []:
                     lines.append(item[1][0])
-        from .engine import solve
+        from common.arithmetic import solve
         candidates = []
         for line in lines:
             expr = normalize(line)

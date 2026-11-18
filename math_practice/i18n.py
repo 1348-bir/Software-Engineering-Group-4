@@ -5,6 +5,8 @@
 优先 ``?lang=`` 查询参数，其次浏览器 Accept-Language，最后回退英文。
 某个键漏翻时直接返回键名本身，便于发现缺词。
 """
+from common.i18n import select_language, translate, bind_translator
+
 TRANSLATIONS = {
     'zh': {
         'title': '数学练习系统',
@@ -154,29 +156,15 @@ TRANSLATIONS = {
 
 
 def get_lang(request):
-    """决定本次请求使用哪种语言：?lang= 优先，其次浏览器偏好，默认英文。"""
-    lang = request.args.get('lang')
-    if lang in TRANSLATIONS:
-        return lang
-    al = request.headers.get('Accept-Language', '')
-    if 'zh' in al:
-        return 'zh'
-    if 'ja' in al:
-        return 'ja'
-    return 'en'
+    """Select the request language using the shared selection policy."""
+    return select_language(request, TRANSLATIONS)
 
 
 def t(key, lang='zh', **kwargs):
-    """取一条文案并填充占位符；语言或键不存在时依次回退到中文、键名。"""
-    text = TRANSLATIONS.get(lang, TRANSLATIONS['zh']).get(key, key)
-    if kwargs:
-        try:
-            return text.format(**kwargs)
-        except Exception:
-            return text
-    return text
+    """Translate and format a message, preserving fallback behavior."""
+    return translate(TRANSLATIONS, key, lang, **kwargs)
 
 
 def translator(lang):
-    """返回绑定好语言的取词函数，模板里只写 ``t('key')`` 即可。"""
-    return lambda key, **kw: t(key, lang, **kw)
+    """Bind a language for template translation calls."""
+    return bind_translator(t, lang)

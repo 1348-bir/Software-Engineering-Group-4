@@ -5,31 +5,19 @@
 避免 Flask 多线程下共享连接带来的问题。数据库文件默认放在包的 data/ 目录。
 """
 import os
-import sqlite3
-from contextlib import contextmanager
+from common.database import AttemptDatabase
 from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'math.db')
 
 
-class MathDB:
+class MathDB(AttemptDatabase):
     """题库与作答记录的数据访问对象。"""
 
-    def __init__(self, path=DB_PATH):
-        """确保目录存在并建表；path 可传自定义路径（测试用临时库）。"""
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        self.path = path
-        self._init()
+    attempt_table = 'mp_attempt'
 
-    @contextmanager
-    def _conn(self):
-        """借出一个连接并在结束时关闭；row_factory 让查询结果可按列名取值。"""
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-        finally:
-            conn.close()
+    def __init__(self, path=DB_PATH):
+        super().__init__(path)
 
     def _init(self):
         """建表：题库用 (expr, answer)，作答记录额外保存用户答案与是否答对。"""
@@ -94,39 +82,6 @@ class MathDB:
             ))
             conn.commit()
 
-    def recent_attempts(self, user_id=None, limit=100):
-        """按时间倒序取记录；传 user_id 时只取该会话的记录。"""
-        with self._conn() as conn:
-            if user_id:
-                rows = conn.execute(
-                    'SELECT * FROM mp_attempt WHERE user_id=? ORDER BY id DESC LIMIT ?',
-                    (user_id, limit)
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    'SELECT * FROM mp_attempt ORDER BY id DESC LIMIT ?',
-                    (limit,)
-                ).fetchall()
-            return [dict(r) for r in rows]
-
     def accuracy(self, user_id=None):
-        """统计做题数、答对数与正确率；没有记录时正确率按 0 处理。"""
-        with self._conn() as conn:
-            if user_id:
-                row = conn.execute(
-                    'SELECT COUNT(*) AS total, SUM(is_correct) AS correct '
-                    'FROM mp_attempt WHERE user_id=?',
-                    (user_id,)
-                ).fetchone()
-            else:
-                row = conn.execute(
-                    'SELECT COUNT(*) AS total, SUM(is_correct) AS correct '
-                    'FROM mp_attempt'
-                ).fetchone()
-            total = row['total'] or 0
-            correct = row['correct'] or 0
-            return {
-                'total': total,
-                'correct': correct,
-                'accuracy': (correct / total) if total else 0.0,
-            }
+        """统计作答数、正确数与正确率。"""
+        return self._success_stats(user_id)

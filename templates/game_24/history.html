@@ -125,47 +125,28 @@
 </div>
 
 <script src="{{ url_for('static', filename='history.js') }}"></script>
+<script src="{{ url_for('static', filename='language.js') }}"></script>
 <script>
-    function switchLang(lang) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-    }
-
-    let latestId = {{ attempts[0].id if attempts else 0 }};
+    const updateHistory = createHistoryPoller({
+        url: "{{ url_for('game_24.api_history') }}",
+        latestId: {{ attempts[0].id if attempts else 0 }},
+        renderRow: (tr, a) => {
+            appendHistoryCell(tr, a.id);
+            appendHistoryCell(tr, a.nums);
+            appendHistoryCell(tr, a.user_expr);
+            appendHistoryCell(tr, a.is_correct ? '✓' : '✗', a.is_correct ? 'ok' : 'no');
+            appendHistoryCell(tr, a.reason || '-');
+            appendHistoryCell(tr, a.created_at);
+        },
+        stats: {
+            statTotal: s => s.total,
+            statCorrect: s => s.correct,
+            statAcc: s => (s.accuracy * 100).toFixed(1) + '%'
+        }
+    });
 
     async function pollHistory() {
-        try {
-            const res = await fetch(
-                "{{ url_for('game_24.api_history') }}?after=" + latestId
-            );
-            const data = await res.json();
-
-            if (data.attempts.length > 0) {
-                const tbody = document.getElementById('historyBody');
-                if (tbody.querySelector('.empty-tip')) {
-                    tbody.innerHTML = '';
-                }
-                data.attempts.forEach(a => {
-                    const tr = document.createElement('tr');
-                    appendHistoryCell(tr, a.id);
-                    appendHistoryCell(tr, a.nums);
-                    appendHistoryCell(tr, a.user_expr);
-                    appendHistoryCell(tr, a.is_correct ? '✓' : '✗', a.is_correct ? 'ok' : 'no');
-                    appendHistoryCell(tr, a.reason || '-');
-                    appendHistoryCell(tr, a.created_at);
-                    tbody.insertBefore(tr, tbody.firstChild);
-                });
-                latestId = data.latest_id;
-            }
-
-            document.getElementById('statTotal').textContent = data.stats.total;
-            document.getElementById('statCorrect').textContent = data.stats.correct;
-            document.getElementById('statAcc').textContent =
-                (data.stats.accuracy * 100).toFixed(1) + '%';
-        } catch (e) {
-            console.error('poll failed', e);
-        }
+        await updateHistory();
     }
 
     setInterval(pollHistory, 3000);
