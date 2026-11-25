@@ -7,6 +7,7 @@
 """
 import os
 import tempfile
+import threading
 
 from session_user import current_user
 from common.history import history_response
@@ -61,6 +62,8 @@ def upload():
     """图片算式识别页（识别依赖可选，未安装时页面会降级提示）。"""
     lang = get_lang(request)
     tr = translator(lang)
+    # 打开页面时后台预热 OCR 模型，用户选图/填答案的时间足够模型加载完。
+    threading.Thread(target=ocr.warm_up, daemon=True).start()
     return render_template('math_practice/upload.html', t=tr, lang=lang)
 
 

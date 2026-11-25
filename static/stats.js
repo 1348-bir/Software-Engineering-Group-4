@@ -45,12 +45,22 @@ function showMessage(text, error = false) {
   target.hidden = !text;
 }
 
+// 与后端 IGNORED 保持一致：这些目录里的文件后端会直接跳过，
+// 前端提前剔除，避免把 .venv / node_modules 里的上万个文件也上传一遍。
+const IGNORED_DIRS = new Set(['.git', '.venv', 'venv', 'node_modules', '__pycache__', '.idea', 'dist', 'build', '__MACOSX']);
+
+/** 判断文件是否位于会被忽略的目录中（依据 relativePath）。 */
+function ignoredPath(file) {
+  const path = file.webkitRelativePath || file.name;
+  return path.split('/').slice(0, -1).some(part => IGNORED_DIRS.has(part));
+}
+
 /** 更新当前选择：刷新标签、按钮可用性，并清掉上一次的结果。 */
 function updateSelection(files) {
   if (busy) return;
   resultSource = 'files';
   $('url-message').hidden = true;
-  selected = Array.from(files);
+  selected = Array.from(files).filter(file => !ignoredPath(file));
   $('selected-label').textContent = selected.length ? `已选择 ${selected.length} 个文件 · ${formatSize(selected.reduce((sum, f) => sum + f.size, 0))}` : '尚未选择文件';
   const error = selectionError();
   $('analyze').disabled = !selected.length || busy || Boolean(error);
@@ -157,10 +167,14 @@ async function analyze() {
     selected.forEach(file => form.append('files', file, file.webkitRelativePath || file.name));
     const response = await fetch('/api/analyze', { method: 'POST', body: form });
     let data;
-    try { data = await response.json(); } catch { throw new Error('服务没有返回有效结果，请缩小文件范围后重试。'); }
+    try { data = await response.json(); } catch { throw new Error(`服务返回异常（HTTP ${response.status}），请缩小文件范围或稍后重试。`); }
     if (!response.ok) throw new Error(data.error || '统计失败');
     report = data; renderReport();
-  } catch (error) { showMessage(error.message || '无法连接服务，请确认网站已启动。', true); }
+  } catch (error) {
+    // 浏览器连不上服务时只会抛 TypeError('Failed to fetch')，换成可操作的提示。
+    const offline = error instanceof TypeError;
+    showMessage(offline ? '无法连接服务：请确认应用已启动（在 PyCharm 运行 app.py 或双击 start.bat）。' : (error.message || '统计失败'), true);
+  }
   finally {
     setBusy(false);
     $('analyze').textContent = '开始统计 →';
@@ -194,12 +208,16 @@ $('url-form').onsubmit = async event => {
   try {
     const response = await fetch('/api/analyze-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
     let data;
-    try { data = await response.json(); } catch { throw new Error('服务未返回有效结果，请稍后重试。'); }
+    try { data = await response.json(); } catch { throw new Error(`服务返回异常（HTTP ${response.status}），请稍后重试。`); }
     if (!response.ok) throw new Error(data.error || '网址统计失败');
     report = data;
     renderReport();
     if (report.files.length) $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (error) { showMessage(error.message || '连接失败，请确认本地服务已启动。', true); }
+  } catch (error) {
+    // 网络层失败（服务未启动/端口不通）时给出可操作的提示，而不是“Failed to fetch”。
+    const offline = error instanceof TypeError;
+    showMessage(offline ? '无法连接服务：请确认应用已启动（在 PyCharm 运行 app.py 或双击 start.bat）。' : (error.message || '网址统计失败'), true);
+  }
   finally { setBusy(false); $('analyze-url').textContent = '从网址统计 →'; }
 };
 

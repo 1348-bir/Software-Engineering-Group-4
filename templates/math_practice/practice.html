@@ -268,7 +268,7 @@
         </div>
 
         <div style="margin-top: 20px; text-align: center;" id="submitBar" hidden>
-            <button class="btn btn-primary btn-lg" onclick="submitAll()">{{ t('submit') }}</button>
+            <button class="btn btn-primary btn-lg" id="submitBtn" onclick="submitAll()">{{ t('submit') }}</button>
         </div>
 
         <div class="stats" id="stats" style="display:none;">
@@ -337,63 +337,84 @@
     async function loadQuestions() {
         saveCfg();
         const params = new URLSearchParams(readCfg());
-        const res = await fetch("{{ url_for('math_practice.api_questions') }}?" + params.toString());
-        const data = await res.json();
-        currentQuestions = data.questions;
+        try {
+            const res = await fetch("{{ url_for('math_practice.api_questions') }}?" + params.toString());
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            currentQuestions = data.questions;
 
-        const list = document.getElementById('qList');
-        list.innerHTML = '';
-        currentQuestions.forEach((q, i) => {
-            const div = document.createElement('div');
-            div.className = 'q-item';
-            div.innerHTML = `
-                <div class="q-no">${i + 1}</div>
-                <div class="q-expr">${q.expr} =</div>
-                <input class="q-input" type="text" inputmode="numeric"
-                       placeholder="${I18N.placeholder}" data-idx="${i}">
-                <div class="q-mark" id="mark-${i}"></div>
-            `;
-            list.appendChild(div);
-        });
+            const list = document.getElementById('qList');
+            list.innerHTML = '';
+            currentQuestions.forEach((q, i) => {
+                const div = document.createElement('div');
+                div.className = 'q-item';
+                div.innerHTML = `
+                    <div class="q-no">${i + 1}</div>
+                    <div class="q-expr">${q.expr} =</div>
+                    <input class="q-input" type="text" inputmode="numeric"
+                           placeholder="${I18N.placeholder}" data-idx="${i}">
+                    <div class="q-mark" id="mark-${i}"></div>
+                `;
+                list.appendChild(div);
+            });
 
-        document.getElementById('submitBar').hidden = false;
-        document.getElementById('stats').style.display = 'none';
+            document.getElementById('submitBar').hidden = false;
+            document.getElementById('stats').style.display = 'none';
+        } catch (error) {
+            document.getElementById('qList').innerHTML =
+                '<div class="empty-tip">加载题目失败，请稍后重试。</div>';
+        }
     }
 
     async function submitAll() {
-        const items = currentQuestions.map((q, i) => {
-            const input = document.querySelector(`.q-input[data-idx="${i}"]`);
-            return { expr: q.expr, answer: input.value.trim() };
-        });
+        const button = document.getElementById('submitBtn');
+        // 批改期间禁用按钮，避免重复提交。
+        if (!currentQuestions.length || button.disabled) return;
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = "{{ t('submitting') }}";
+        try {
+            const items = currentQuestions.map((q, i) => {
+                const input = document.querySelector(`.q-input[data-idx="${i}"]`);
+                return { expr: q.expr, answer: input.value.trim() };
+            });
 
-        const res = await fetch("{{ url_for('math_practice.api_submit') }}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: items, source: 'manual' })
-        });
-        const data = await res.json();
+            const res = await fetch("{{ url_for('math_practice.api_submit') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: items, source: 'manual' })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            if (!Array.isArray(data.results)) throw new Error('bad payload');
 
-        const itemNodes = document.querySelectorAll('.q-item');
-        data.results.forEach((r, i) => {
-            const mark = document.getElementById(`mark-${i}`);
-            const item = itemNodes[i];
+            const itemNodes = document.querySelectorAll('.q-item');
+            data.results.forEach((r, i) => {
+                const mark = document.getElementById(`mark-${i}`);
+                const item = itemNodes[i];
 
-            if (r.correct) {
-                mark.className = 'q-mark ok';
-                mark.textContent = '✓';
-                item.classList.add('row-ok');
-            } else {
-                mark.className = 'q-mark no';
-                mark.innerHTML = `✗<br><span class="std-ans">${r.standard ?? '?'}</span>`;
-                item.classList.add('row-no');
-            }
-        });
+                if (r.correct) {
+                    mark.className = 'q-mark ok';
+                    mark.textContent = '✓';
+                    item.classList.add('row-ok');
+                } else {
+                    mark.className = 'q-mark no';
+                    mark.innerHTML = `✗<br><span class="std-ans">${r.standard ?? '?'}</span>`;
+                    item.classList.add('row-no');
+                }
+            });
 
-        document.getElementById('statTotal').textContent = data.total;
-        document.getElementById('statCorrect').textContent = data.correct;
-        document.getElementById('statAcc').textContent =
-            (data.accuracy * 100).toFixed(1) + '%';
-        document.getElementById('stats').style.display = 'flex';
+            document.getElementById('statTotal').textContent = data.total;
+            document.getElementById('statCorrect').textContent = data.correct;
+            document.getElementById('statAcc').textContent =
+                (data.accuracy * 100).toFixed(1) + '%';
+            document.getElementById('stats').style.display = 'flex';
+        } catch (error) {
+            alert('提交失败，请检查服务是否运行后重试。');
+        } finally {
+            button.disabled = false;
+            button.textContent = original;
+        }
     }
 
     loadCfg();

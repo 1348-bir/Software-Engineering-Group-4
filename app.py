@@ -5,9 +5,14 @@
 - 数学、24 点、骰子各自是蓝图，末尾统一注册；
 - 成员页与旧入口兼容路由由 ``group_site`` 注册。
 """
+import faulthandler
 import os
 from pathlib import Path
 from flask import Flask, jsonify, redirect, render_template, request, url_for
+
+# 原生扩展（tree-sitter 等）崩溃时，把各线程的 Python 栈直接打到控制台，
+# 方便定位是哪个请求、哪一行触发的，否则进程会静默消失。
+faulthandler.enable()
 
 from code_stats import (
     analyze_uploads,
@@ -95,12 +100,22 @@ def analyze():
     except ValueError as exc:
         # 引擎用 ValueError 表达可预期的输入错误（超限、编码、ZIP 损坏等）。
         return jsonify(error=str(exc)), 400
+    except MemoryError:
+        # 超大源码在读取/词法分析时可能吃光内存，返回可读提示而不是 500 页面。
+        return jsonify(error='文件过大导致内存不足，请缩小文件范围后重试'), 400
 
 
 @app.errorhandler(413)
 def upload_too_large(error):
     """请求体超出 MAX_CONTENT_LENGTH 时返回可读的 JSON 而不是默认页面。"""
     return jsonify(error='上传请求过大或文件过多；文件总大小上限为 1 GB，请分批统计'), 413
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """未预料的异常也返回 JSON，前端才能把原因显示出来而不是“没有有效结果”。"""
+    app.logger.exception('处理请求时发生未捕获异常')
+    return jsonify(error='服务器处理失败，请缩小文件范围后重试（详细堆栈见服务端控制台）'), 500
 
 
 @app.post('/api/analyze-url')
@@ -134,8 +149,25 @@ from museum import bp as museum_bp
 app.register_blueprint(museum_bp)
 
 
+def _port_in_use(host, port):
+    """探测端口是否已被占用：Windows 下两个 Flask 实例可以同时绑定同一端口，
+    导致一个带 OCR、一个不带 OCR，请求随机落到不同进程，很难排查。"""
+    import socket
+
+    probe = '127.0.0.1' if host in ('0.0.0.0', '::', '') else host
+    with socket.socket() as sock:
+        sock.settimeout(0.5)
+        return sock.connect_ex((probe, port)) == 0
+
+
 def run():
-    app.run(host=os.environ.get('STUDIO_HOST', '127.0.0.1'), port=int(os.environ.get('PORT', '5050')), debug=False)
+    host = os.environ.get('STUDIO_HOST', '127.0.0.1')
+    port = int(os.environ.get('PORT', '5050'))
+    if _port_in_use(host, port):
+        raise SystemExit(
+            f'端口 {host}:{port} 已被占用：可能已经有一个实例在运行，'
+            '请先关闭旧进程（或换一个 PORT）再启动。')
+    app.run(host=host, port=port, debug=False)
 
 if __name__ == '__main__':
     run()

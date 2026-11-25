@@ -125,7 +125,7 @@
                        placeholder="{{ t('expr_placeholder') }}"
                        style="width: 120px; margin-left: 8px;">
                 <br><br>
-                <button class="btn btn-primary" onclick="uploadImage()">
+                <button class="btn btn-primary" id="uploadBtn" onclick="uploadImage()">
                     {{ t('submit') }}
                 </button>
             </div>
@@ -148,7 +148,7 @@
 
         <p class="tip tip-info">
             OCR 识别对手写体支持有限，建议使用打印体算式。<br>
-            Windows 可使用系统自带 OCR，无需安装 PaddleOCR；其他系统需要可选识别依赖。建议每次上传一张清晰的单道算式图片。
+            如果服务器未安装 PaddleOCR，本功能会自动降级，返回空结果。
         </p>
     </div>
 </div>
@@ -168,33 +168,65 @@
         reader.readAsDataURL(file);
     });
 
-    async function uploadImage() {
-        try {
-            await performUpload();
-        } catch (error) {
-            const box = document.getElementById('resultBox');
-            box.style.display = 'block';
-            document.getElementById('rExpr').textContent = '连接或返回结果异常，请稍后重试。';
-            document.getElementById('rStd').textContent = '-';
-            document.getElementById('rResult').textContent = '-';
-        }
+    const OCR_TIMEOUT_MS = 180000;
+
+    function showResult(expr, std, result, resultClass) {
+        const box = document.getElementById('resultBox');
+        box.style.display = 'block';
+        document.getElementById('rExpr').textContent = expr;
+        const stdEl = document.getElementById('rStd');
+        stdEl.textContent = std;
+        stdEl.className = 'result-value';
+        const r = document.getElementById('rResult');
+        r.textContent = result;
+        r.className = 'result-value' + (resultClass ? ' ' + resultClass : '');
     }
-    async function performUpload() {
+
+    async function uploadImage() {
+        const button = document.getElementById('uploadBtn');
         const fileInput = document.getElementById('imageInput');
+        // 识别期间禁用按钮，避免连点排队把服务拖垮。
+        if (button.disabled) return;
         if (!fileInput.files.length) {
             alert('请先选择图片');
             return;
         }
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = "{{ t('ocr_processing') }}";
+        showResult("{{ t('ocr_processing') }}", '-', '-', '');
+        try {
+            await performUpload();
+        } catch (error) {
+            const message = error && error.name === 'AbortError'
+                ? '识别超时，请换一张更小的图片重试。'
+                : '连接或返回结果异常，请稍后重试。';
+            showResult(message, '-', '-', '');
+        } finally {
+            button.disabled = false;
+            button.textContent = original;
+        }
+    }
 
+    async function performUpload() {
+        const fileInput = document.getElementById('imageInput');
         const formData = new FormData();
         formData.append('image', fileInput.files[0]);
         formData.append('answer', document.getElementById('userAnswer').value.trim());
 
-        const res = await fetch("{{ url_for('math_practice.api_ocr') }}", {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS);
+        let data;
+        try {
+            const res = await fetch("{{ url_for('math_practice.api_ocr') }}", {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal
+            });
+            data = await res.json();
+        } finally {
+            clearTimeout(timer);
+        }
 
         const box = document.getElementById('resultBox');
         box.style.display = 'block';

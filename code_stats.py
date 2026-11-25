@@ -107,6 +107,13 @@ def count_stream(name, stream, size):
 
     total = source.count('\n') + int(bool(source) and not source.endswith('\n'))
     function_ranges, function_warning = find_functions(source, lexer.name)
+    # 原生解析器偶发返回越界/无效位置时，丢弃这些范围，避免后面查表 KeyError。
+    if function_ranges is not None:
+        valid = [(start, end) for start, end in function_ranges
+                 if 1 <= start <= end <= total]
+        if len(valid) != len(function_ranges):
+            function_ranges = valid
+            function_warning = '函数位置解析异常，部分函数指标已忽略'
     # 函数边界（起始行前一行为 start-1，结束行为 end），用于在扫描时记录代码行快照。
     boundaries = {point for start, end in (function_ranges or []) for point in (start - 1, end)}
     code_prefix = {0: 0}
@@ -190,6 +197,9 @@ def analyze_uploads(uploads):
             results.append(count_stream(name, stream, size))
         except (ValueError, UnicodeError) as exc:
             skipped.append({'name': name, 'reason': str(exc)})
+        except MemoryError:
+            # 单个超大文件吃光内存时跳过它，其余文件继续统计。
+            skipped.append({'name': name, 'reason': '文件过大导致内存不足，已跳过'})
 
     for upload in uploads:
         name = upload.filename or 'unnamed'
