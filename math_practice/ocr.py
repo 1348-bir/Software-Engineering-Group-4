@@ -8,6 +8,10 @@
 未识别出有效算式时，再用 PaddleOCR 默认配置重试。
 """
 import re
+import json
+import os
+import subprocess
+from pathlib import Path
 import threading
 import unicodedata
 from importlib.metadata import version
@@ -29,7 +33,7 @@ def _check_available():
     try:
         from paddleocr import PaddleOCR  # noqa: F401  仅用于探测依赖
         _available = True
-    except ImportError:
+    except (ImportError, OSError, RuntimeError):
         _available = False
     return _available
 
@@ -151,24 +155,60 @@ def _candidates_from(engine, source):
     return found
 
 
-def recognize(image_path):
-    """识别图片中的算式，返回清洗后的表达式字符串；失败返回空串。"""
+def _paddle_lines(image_path):
+    """Return text lines while keeping the existing fast/accurate retry policy."""
     if not _check_available():
         raise RuntimeError('OCR 引擎未安装。请使用 Python 3.11 或 3.12 的独立环境安装 requirements-ocr.txt 后启动应用。')
     with _lock:
         try:
             source = _prepare(image_path)
-            candidates = _candidates_from(get_ocr(fast=True), source)
-            if not candidates:
+            lines = _texts_from(get_ocr(fast=True), source)
+            from common.arithmetic import solve
+            if not any(normalize(line) and solve(normalize(line))[0] for line in lines):
                 # 轻量模型没认出算式时，才用更慢但更准的模型再试一次。
-                candidates = _candidates_from(get_ocr(fast=False), source)
-            if len(candidates) > 1:
-                raise RuntimeError('检测到多道算式，请裁剪为单道题后重试。')
-            return candidates[0] if candidates else ''
+                lines = _texts_from(get_ocr(fast=False), source)
+            return lines
         except RuntimeError:
             raise
         except Exception as exc:
             raise RuntimeError('OCR 引擎初始化或识别失败，请检查依赖、模型下载和图片格式。') from exc
+
+
+def _windows_lines(image_path):
+    """Read installed Windows OCR locally with a bounded subprocess lifetime."""
+    try:
+        result = subprocess.run(
+            ['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+             str(Path(__file__).with_name('windows_ocr.ps1')),
+             '-ImagePath', str(Path(image_path).resolve())],
+            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), check=True)
+        lines = json.loads(result.stdout.lstrip('\ufeff'))['lines']
+        if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines):
+            raise ValueError('Invalid Windows OCR response')
+        return lines
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError) as exc:
+        raise RuntimeError('Windows OCR 无法读取图片，请上传清晰的 PNG/JPG，并确认系统安装了 OCR 语言包；也可安装 requirements-ocr.txt。') from exc
+
+
+def recognize(image_path):
+    """Preserve the single-question endpoint and the Windows fallback."""
+    if _check_available():
+        try:
+            lines = _paddle_lines(image_path)
+        except RuntimeError:
+            if os.name != 'nt':
+                raise
+            lines = _windows_lines(image_path)
+    elif os.name == 'nt':
+        lines = _windows_lines(image_path)
+    else:
+        raise RuntimeError('OCR 引擎未安装，请安装 requirements-ocr.txt。')
+    from common.arithmetic import solve
+    candidates = [normalize(line) for line in lines if normalize(line) and solve(normalize(line))[0]]
+    if len(candidates) > 1:
+        raise RuntimeError('检测到多道算式，请使用整页识别或裁剪为单道题。')
+    return candidates[0] if candidates else ''
 
 
 def _page_candidates(lines):
@@ -204,10 +244,32 @@ def needs_review(expr):
     return not re.search(r'[+\-×÷^]', expr) or not solve(expr)[0]
 
 
+def _windows_page(image_path):
+    lines = _windows_lines(image_path)
+    for line in lines:
+        text = unicodedata.normalize('NFKC', line)
+        # Native OCR has no cell positions here: do not fuse adjacent questions.
+        if text.count('=') > 1 or ('=' not in text and re.search(r'\d\s+\d', text)):
+            raise RuntimeError('Windows OCR 无法分离同一行的多道题，请裁剪为单列或安装 requirements-ocr.txt 后重试。')
+    return _page_candidates(lines)
+
+
 def recognize_page(image_path):
-    """Prefer the more complete valid result; preserve uncertain items for review."""
+    """Keep whole-page Paddle recognition, falling back to installed Windows OCR."""
     if not _check_available():
+        if os.name == 'nt':
+            return _windows_page(image_path)
         raise RuntimeError('OCR 引擎未安装，请安装 requirements-ocr.txt 后启动应用。')
+    try:
+        return _paddle_page(image_path)
+    except RuntimeError:
+        if os.name != 'nt':
+            raise
+        return _windows_page(image_path)
+
+
+def _paddle_page(image_path):
+    """Prefer the more complete valid result; preserve uncertain items for review."""
     with _lock:
         try:
             source = _prepare(image_path, max_side=1600)
