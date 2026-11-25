@@ -135,3 +135,29 @@ class MuseumIntegration(unittest.TestCase):
                'until':'2026-11-02','start':'22:00','end':'02:00','days':[0]})}
         self.assertTrue(active(item,dt.datetime(2026,11,3,1,59)))
         self.assertFalse(active(item,dt.datetime(2026,11,3,2)))
+
+    def test_real_pdf_import_from_local_player_without_admin(self):
+        import pypdfium2 as pdfium
+        pdfpath=Path(self.tmp.name)/'two-pages.pdf'
+        with pdfium.PdfDocument.new() as pdf:
+            pdf.new_page(300,400).close()
+            pdf.new_page(300,400).close()
+            pdf.save(str(pdfpath))
+        response=self.client.post('/museum/api/import-document?name=two.pdf',data=pdfpath.read_bytes(),
+                                  headers={'X-Museum-Request':'1'})
+        self.assertEqual(response.status_code,201,response.get_data(as_text=True))
+        self.assertEqual(response.json['page_count'],2)
+        with self.client.get('/museum/media/'+response.json['id']+'/page/2') as page:
+            self.assertTrue(page.data.startswith(b'\x89PNG'))
+
+    def test_remote_document_import_still_requires_admin(self):
+        response=self.client.post('/museum/api/import-document?name=two.pdf',data=b'pdf',
+                         headers={'X-Museum-Request':'1'},environ_overrides={'REMOTE_ADDR':'192.0.2.8'})
+        self.assertEqual(response.status_code,401)
+
+    def test_invalid_pdf_not_added_to_catalog(self):
+        response=self.client.post('/museum/api/import-document?name=bad.pdf',data=b'not a PDF',
+                                  headers={'X-Museum-Request':'1'})
+        self.assertEqual(response.status_code,400)
+        self.assertEqual(self.client.get('/museum/api/admin/catalog',headers=self.auth).json['assets'],{})
+        self.assertEqual(list((Path(self.tmp.name)/'media').iterdir()),[])

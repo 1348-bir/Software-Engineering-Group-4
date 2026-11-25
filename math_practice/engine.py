@@ -1,11 +1,14 @@
 # math_practice/engine.py
 """
 逆波兰表达式引擎 + 调度场算法 + 可定制出题 + 批改。
-支持运算符: + - × ÷ ^ ( ) 以及一元负号 u-
 
-配置驱动：QuestionConfig 集中所有定制项（乘除、括号、负数、
-除法余数、分数、数值范围、打印参数），表达式生成-校验-批改
-全部走配置，默认配置行为与旧版一致。
+支持运算符：+ - × ÷ ^ ( ) 以及一元负号 u-。
+配置驱动：QuestionConfig 集中所有定制项（乘除、括号、负数、除法余数、
+分数、数值范围、打印参数），出题、校验、批改全部走同一份配置。
+
+为什么用逆波兰 + Fraction：
+- 逆波兰不需要递归求值，括号和优先级在转换阶段就处理掉了；
+- Fraction 用分数精确表示，1/3 这类中间结果不会出现浮点误差。
 """
 
 import random
@@ -14,39 +17,15 @@ import time
 from dataclasses import dataclass
 from fractions import Fraction
 
-PRECEDENCE = {
-    '+': 1, '-': 1,
-    '×': 2, '÷': 2,
-    '^': 3,
-    'u-': 4,
-}
-
-RIGHT_ASSOC = {'^', 'u-'}
-
-OPS = ['+', '-', '×', '÷']
-
-_TOKEN_NUM = re.compile(r'^\d+(/\d+)?$')
-MAX_EXPRESSION = 512
-MAX_NUMBER_DIGITS = 16
-MAX_VALUE_BITS = 256
-MAX_EXPONENT = 12
-
-
-def bounded_value(value):
-    if (value.numerator.bit_length() > MAX_VALUE_BITS or
-            value.denominator.bit_length() > MAX_VALUE_BITS):
-        raise ValueError('计算结果过大')
-    return value
-
-
-def bounded_power(base, exponent):
-    if exponent.denominator != 1 or abs(exponent) > MAX_EXPONENT:
-        raise ValueError('指数必须为 -12 到 12 的整数')
-    return bounded_value(base ** int(exponent))
+from common.arithmetic import (
+    MAX_EXPRESSION, MAX_NUMBER_DIGITS, MAX_VALUE_BITS, MAX_EXPONENT,
+    PRECEDENCE, RIGHT_ASSOC, OPS, bounded_value, bounded_power,
+    tokenize, to_rpn, eval_rpn, solve,
+)
 
 
 def _as_bool(v):
-    """宽松解析布尔值：支持 0/1、true/false、yes/no 字符串"""
+    """宽松解析布尔值：支持 0/1、true/false、yes/no 字符串。"""
     if isinstance(v, bool):
         return v
     if v is None:
@@ -73,6 +52,7 @@ class QuestionConfig:
     line_spacing: float = 1.0        # 行距倍率
 
     def to_dict(self):
+        """导出为普通字典，供模板与调试使用（不含 answer_range）。"""
         return {
             'count': self.count,
             'num_range': self.num_range,
@@ -88,6 +68,7 @@ class QuestionConfig:
 
     @classmethod
     def from_dict(cls, d):
+        """从字典构造配置，并把每一项限制在允许范围内（防止恶意超大参数）。"""
         cfg = cls()
         cfg.count = max(1, min(int(d.get('count', d.get('n', cfg.count))), 200))
         cfg.num_range = max(1, min(int(d.get('num_range', cfg.num_range)), 1000))
@@ -103,216 +84,29 @@ class QuestionConfig:
 
     @classmethod
     def from_query(cls, args):
-        """args: MultiDict 或 dict（query 参数均为字符串）"""
+        """从查询参数构造配置（args 是 MultiDict 或 dict，值都是字符串）。"""
         return cls.from_dict(args)
 
     def to_query(self):
+        """导出为查询串字典，所有值转成字符串，便于拼 URL。"""
         d = self.to_dict()
         return {k: str(v) for k, v in d.items()}
 
 
 # ---------------- 表达式层（支持分数 token） ----------------
 
-def tokenize(expr):
-    if not isinstance(expr, str) or len(expr) > MAX_EXPRESSION:
-        raise ValueError('算式过长或格式错误')
-    tokens = []
-    i = 0
-    while i < len(expr):
-        ch = expr[i]
-        if ch.isspace():
-            i += 1
-            continue
-        if ch.isdigit():
-            num = ''
-            while i < len(expr) and expr[i].isdigit():
-                num += expr[i]
-                i += 1
-            # 分数：数字 紧跟 '/数字'
-            if (i < len(expr) and expr[i] == '/'
-                    and i + 1 < len(expr) and expr[i + 1].isdigit()):
-                num += '/'
-                i += 1
-                while i < len(expr) and expr[i].isdigit():
-                    num += expr[i]
-                    i += 1
-            tokens.append(num)
-            continue
-        if ch in '+-×÷^()':
-            tokens.append(ch)
-            i += 1
-            continue
-        raise ValueError(f"非法字符: {ch}")
-    return tokens
-
-
-def _is_num(tok):
-    return bool(_TOKEN_NUM.match(tok))
-
-
-def _parse_num(tok):
-    if any(len(part) > MAX_NUMBER_DIGITS for part in tok.split('/')):
-        raise ValueError('运算数过长')
-    if '/' in tok:
-        n, d = tok.split('/', 1)
-        return Fraction(int(n), int(d))
-    return Fraction(int(tok))
-
-
-def to_rpn(tokens):
-    """调度场算法：中缀 token -> 逆波兰 token"""
-    output = []
-    stack = []
-    prev = None
-
-    for tok in tokens:
-        if _is_num(tok):
-            output.append(tok)
-        elif tok == '(':
-            stack.append(tok)
-        elif tok == ')':
-            while stack and stack[-1] != '(':
-                output.append(stack.pop())
-            if not stack:
-                raise ValueError("括号不匹配")
-            stack.pop()
-        else:
-            if tok == '-' and (prev is None or prev in '+-×÷^('):
-                tok = 'u-'
-            while (stack and stack[-1] != '('
-                   and (PRECEDENCE[stack[-1]] > PRECEDENCE[tok]
-                        or (PRECEDENCE[stack[-1]] == PRECEDENCE[tok]
-                            and tok not in RIGHT_ASSOC))):
-                output.append(stack.pop())
-            stack.append(tok)
-        prev = tok
-
-    while stack:
-        if stack[-1] == '(':
-            raise ValueError("括号不匹配")
-        output.append(stack.pop())
-
-    return output
-
-
-def eval_rpn(rpn):
-    """求逆波兰表达式的值（Fraction 精确运算）"""
-    stack = []
-    for tok in rpn:
-        if _is_num(tok):
-            stack.append(_parse_num(tok))
-        elif tok == 'u-':
-            a = stack.pop()
-            stack.append(-a)
-        else:
-            b = stack.pop()
-            a = stack.pop()
-            if tok == '+':
-                stack.append(a + b)
-            elif tok == '-':
-                stack.append(a - b)
-            elif tok == '×':
-                stack.append(a * b)
-            elif tok == '÷':
-                if b == 0:
-                    raise ZeroDivisionError
-                stack.append(a / b)
-            elif tok == '^':
-                stack.append(bounded_power(a, b))
-            bounded_value(stack[-1])
-    if len(stack) != 1:
-        raise ValueError("表达式非法")
-    return stack[0]
-
-
-def solve(expr):
-    """纯求值（Fraction），不校验范围。返回 (是否合法, Fraction)"""
-    try:
-        rpn = to_rpn(tokenize(expr))
-        val = eval_rpn(rpn)
-    except Exception:
-        return False, None
-    return True, val
-
-
 def evaluate(expr, cfg=None):
-    """按配置校验表达式。返回 (是否合法, Fraction 答案)"""
-    cfg = cfg or QuestionConfig()
-    lo, hi = cfg.answer_range
+    """Apply practice policy using the shared parser and arithmetic interpreter."""
     try:
-        rpn = to_rpn(tokenize(expr))
-    except Exception:
+        return True, eval_rpn(to_rpn(tokenize(expr)), cfg or QuestionConfig())
+    except (ValueError, ZeroDivisionError, IndexError, KeyError, TypeError):
         return False, None
-
-    # 题面负数：u- 出现在 rpn 中即代表表达式含负号
-    if not cfg.allow_negative and 'u-' in rpn:
-        return False, None
-
-    stack = []
-    for tok in rpn:
-        if _is_num(tok):
-            try:
-                v = _parse_num(tok)
-            except (ValueError, ZeroDivisionError):
-                return False, None
-            if abs(v) > cfg.num_range:
-                return False, None
-            stack.append(v)
-        elif tok == 'u-':
-            a = stack.pop()
-            stack.append(-a)
-        else:
-            if len(stack) < 2:
-                return False, None
-            b = stack.pop()
-            a = stack.pop()
-            if tok == '÷':
-                if b == 0:
-                    return False, None
-                # 无余数且无分数 -> 必须整除
-                if not cfg.allow_remainder and not cfg.allow_fraction:
-                    if a.denominator != 1 or b.denominator != 1:
-                        return False, None
-                    if a % b != 0:
-                        return False, None
-                v = a / b
-            elif tok == '+':
-                v = a + b
-            elif tok == '-':
-                v = a - b
-            elif tok == '×':
-                v = a * b
-            elif tok == '^':
-                if b.denominator != 1 or b < 0:
-                    return False, None
-                try:
-                    v = bounded_power(a, b)
-                except (ValueError, ZeroDivisionError):
-                    return False, None
-            else:
-                return False, None
-            if not cfg.allow_negative and v < 0:
-                return False, None
-            try:
-                stack.append(bounded_value(v))
-            except ValueError:
-                return False, None
-
-    if len(stack) != 1:
-        return False, None
-
-    v = stack[0]
-    if v < lo or v > hi:
-        return False, None
-    if not cfg.allow_fraction and not cfg.allow_remainder and v.denominator != 1:
-        return False, None
-    return True, v
 
 
 # ---------------- 可定制出题 ----------------
 
 def format_answer(value, allow_fraction=False):
-    """Fraction -> 显示文本：整数 / 分数 / 小数"""
+    """把 Fraction 转成展示文本：整数、分数或保留两位的小数。"""
     if value.denominator == 1:
         return str(int(value.numerator))
     if allow_fraction:
@@ -322,6 +116,7 @@ def format_answer(value, allow_fraction=False):
 
 
 def _gen_ops(cfg):
+    """按配置返回可用的运算符集合。"""
     ops = ['+', '-']
     if cfg.allow_mult_div:
         ops += ['×', '÷']
@@ -329,10 +124,11 @@ def _gen_ops(cfg):
 
 
 def _gen_number(cfg, integral_only=False):
-    """生成一个运算数 token，可为负数 / 分数"""
+    """生成一个运算数 token；按配置可出现分数或负号。"""
     if integral_only or not cfg.allow_fraction:
         tok = str(random.randint(0, cfg.num_range))
     else:
+        # 约三分之一概率生成真分数，其余为整数。
         if random.random() < 0.35:
             d = random.randint(2, 9)
             n = random.randint(1, cfg.num_range)
@@ -345,6 +141,7 @@ def _gen_number(cfg, integral_only=False):
 
 
 def _build_expr(a, op1, b, op2, c, paren):
+    """按「三数两运算符」拼算式；开括号时随机选择加括号的位置。"""
     if paren:
         if random.random() < 0.5:
             return f"({a} {op1} {b}) {op2} {c}"
@@ -353,7 +150,7 @@ def _build_expr(a, op1, b, op2, c, paren):
 
 
 def make_expr(cfg):
-    """按配置生成一道表达式（合法性交给 generate_batch 里的 evaluate 过滤）"""
+    """按配置生成一条候选算式；合法性交给 generate_batch 里的 evaluate 过滤。"""
     ops = _gen_ops(cfg)
     for _ in range(30):
         need_div_int = not cfg.allow_remainder and not cfg.allow_fraction
@@ -361,7 +158,7 @@ def make_expr(cfg):
         op2 = random.choice(ops)
 
         if op1 == '÷' and need_div_int:
-            # 保证 a ÷ b 整除：b 取 1..num_range，a 取 b 的倍数
+            # 要求整除时先造除数，再取它的倍数当被除数，保证除得尽。
             b = str(random.randint(1, cfg.num_range))
             bv = int(b)
             a_val = bv * random.randint(0, cfg.num_range // bv)
@@ -375,14 +172,14 @@ def make_expr(cfg):
         if not cfg.allow_parentheses:
             return expr
 
-        # 括号有效性：去掉外层括号后若求值相同，说明括号冗余 -> 重试
+        # 括号有效性：去掉括号后若求值相同，说明括号是冗余的，重试。
         plain = f"{a} {op1} {b} {op2} {c}"
         ok1, v1 = solve(expr)
         ok2, v2 = solve(plain)
         if ok1 and ok2 and v1 != v2:
             return expr
 
-    # 兜底：放弃括号
+    # 兜底：放弃括号，直接返回一条普通算式。
     a = _gen_number(cfg)
     b = _gen_number(cfg)
     c = _gen_number(cfg)
@@ -392,13 +189,15 @@ def make_expr(cfg):
 def generate_batch(count, cfg=None, seed=None, max_zero=5, deadline=None):
     """
     生成 count 道不重复且合法的题。
-    返回 [(expr, answer_text, answer_Fraction), ...]
-    max_zero: 整个批次里数字 0 最多出现的次数
+    返回 [(expr, answer_text, answer_Fraction), ...]。
+
+    max_zero：整个批次里数字 0 最多出现几次（避免题目全是 0）；
+    deadline：时间预算，到点就停，返回已生成的题。
     """
     if seed is not None:
         random.seed(seed)
     cfg = cfg or QuestionConfig()
-    # Public practice/print callers also need a budget for scarce configurations.
+    # 普通练习与打印也走时间预算，避免苛刻配置下长时间无响应。
     if deadline is None:
         deadline = time.monotonic() + 2
 
@@ -406,7 +205,7 @@ def generate_batch(count, cfg=None, seed=None, max_zero=5, deadline=None):
     seen = set()
     zero_used = 0
     guard = 0
-    limit = max(1000, count * 500)
+    limit = max(1000, count * 500)      # 生成尝试次数上限，防止死循环
 
     while len(result) < count and guard < limit:
         if time.monotonic() >= deadline:
@@ -420,6 +219,7 @@ def generate_batch(count, cfg=None, seed=None, max_zero=5, deadline=None):
         if not ok:
             continue
 
+        # 统计本条算式里 0 的个数，超过配额就丢弃。
         parts = expr.split()
         zeros_here = sum(1 for p in parts if p == '0' or p.startswith('0/'))
         if zero_used + zeros_here > max_zero:
@@ -433,7 +233,11 @@ def generate_batch(count, cfg=None, seed=None, max_zero=5, deadline=None):
 
 
 def generate_to_db(db, count=100, batch=100, cfg=None, seed=None):
-    """分批生成并写入数据库，避免一次性占内存。仅入库整数且答案在 0-100 的题。"""
+    """分批生成并写入题库，避免一次性占用大量内存。
+
+    只入库「整数答案且答案在 0-100」的题，保证默认模式的题目质量；
+    返回实际写入的数量（可能少于请求值）。
+    """
     if type(count) is not int or not 1 <= count <= 1000:
         raise ValueError('每次只能生成 1 到 1000 题')
     if type(batch) is not int or not 1 <= batch <= 200:
@@ -463,17 +267,21 @@ def generate_to_db(db, count=100, batch=100, cfg=None, seed=None):
 # ---------------- 批改 ----------------
 
 def parse_user_answer(text):
-    """把用户输入解析为 Fraction；支持 整数 / 小数 / 分数 / 带分数。解析失败返回 None。"""
+    """把用户输入解析成 Fraction；支持整数/小数/分数/带分数，失败返回 None。
+
+    先做白名单正则与长度限制，再单独限制科学计数法的指数，
+    避免 ``1e999999`` 这类输入在 Fraction 里展开成天文数字。
+    """
     s = str(text).strip()
     if len(s) > 128 or not re.fullmatch(r'[0-9eE+./\-\s]+', s):
         return None
-    # Fraction accepts scientific notation: bound its exponent before parsing.
     for exponent in re.findall(r'[eE]([+-]?\d+)', s):
         if len(exponent.lstrip('+-')) > 3 or abs(int(exponent)) > 100:
             return None
     if not s:
         return None
     if ' ' in s:
+        # 带分数： "1 1/2" 表示 1.5
         parts = s.split()
         if len(parts) == 2 and '/' in parts[1]:
             try:
@@ -489,7 +297,7 @@ def parse_user_answer(text):
 
 
 def grade_one(expr, user_answer):
-    """批改单题。返回 (是否正确, 标准答案文本, 用户答案)"""
+    """批改单题，返回 ``(是否正确, 标准答案文本, 用户答案)``。"""
     ok, std = solve(expr)
     if not ok:
         return False, None, user_answer
@@ -502,7 +310,7 @@ def grade_one(expr, user_answer):
 
 
 def grade_batch(items):
-    """批量批改。items = [(expr, user_answer), ...]"""
+    """批量批改；items 为 ``[(expr, user_answer), ...]``，返回逐题结果列表。"""
     results = []
     for expr, ua in items:
         correct, std, uv = grade_one(expr, ua)

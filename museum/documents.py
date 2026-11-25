@@ -6,6 +6,7 @@ import subprocess
 import threading
 
 FORMATS = {
+    '.pdf': 'application/pdf',
     '.ppt': 'application/vnd.ms-powerpoint',
     '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     '.doc': 'application/msword',
@@ -16,23 +17,12 @@ PAGE_LIMIT = 100
 LOCK = threading.Lock()
 
 
-def pdf_renderer():
-    configured = os.environ.get('MUSEUM_PDFTOPPM')
-    if configured:
-        return configured if Path(configured).is_file() else None
-    installed = shutil.which('pdftoppm')
-    if installed:
-        return installed
-    bundled = Path.home() / '.cache/codex-runtimes/codex-primary-runtime/dependencies/native/poppler/Library/bin/pdftoppm.exe'
-    return str(bundled) if bundled.is_file() else None
-
-
 def render(source, output):
+    if source.suffix.lower() == '.pdf':
+        output.mkdir()
+        return render_pdf(source, output)
     if os.name != 'nt':
         raise ValueError('Office 文档导入需要在安装 Microsoft Office 的 Windows 服务器上运行')
-    renderer = pdf_renderer() if source.suffix.lower() in {'.doc', '.docx'} else None
-    if source.suffix.lower() in {'.doc', '.docx'} and not renderer:
-        raise ValueError('Word 文档导入需要 pdftoppm，请安装 Poppler 或设置 MUSEUM_PDFTOPPM')
     output.mkdir()
     script = Path(__file__).with_name('render_document.ps1')
     shell = shutil.which('pwsh.exe') or 'powershell.exe'
@@ -42,12 +32,11 @@ def render(source, output):
                             '-File',str(script),'-Source',str(source),'-Output',str(output),
                             '-PageLimit',str(PAGE_LIMIT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
                            timeout=120, creationflags=subprocess.CREATE_NO_WINDOW)
-        if renderer:
+        if source.suffix.lower() in {'.doc', '.docx'}:
             pdf = output / 'document.pdf'
-            subprocess.run([renderer, '-f', '1', '-l', str(PAGE_LIMIT + 1), '-scale-to', '1440',
-                            '-png', str(pdf), str(output/'page')], capture_output=True, check=True,
-                           timeout=60, creationflags=subprocess.CREATE_NO_WINDOW)
-            pdf.unlink()
+            count = render_pdf(pdf, output)
+            pdf.unlink(missing_ok=True)
+            return count
     except subprocess.TimeoutExpired as exc:
         raise ValueError('文档转换超时，请拆分文件并确认 Office 无需交互提示') from exc
     except (OSError, subprocess.CalledProcessError) as exc:
@@ -59,3 +48,34 @@ def render(source, output):
     for n, page in enumerate(pages, 1):
         page.rename(output / f'{n}.png')
     return len(pages)
+
+
+def render_pdf(source, output):
+    """PDFium renders one page at a time, without Office or system Poppler."""
+    try:
+        import pypdfium2 as pdfium
+    except ImportError as exc:
+        raise ValueError('缺少 PDF 渲染依赖，请运行 python -m pip install -r requirements.txt') from exc
+    try:
+        with LOCK, pdfium.PdfDocument(str(source)) as doc:
+            count = len(doc)
+            if not 1 <= count <= PAGE_LIMIT:
+                raise ValueError('文档没有可播放页面或超过 100 页')
+            for index in range(count):
+                page = doc[index]
+                bitmap = None
+                try:
+                    width, height = page.get_size()
+                    if min(width, height) <= 0:
+                        raise ValueError('PDF 页面尺寸无效')
+                    bitmap = page.render(scale=min(2, 1440 / max(width, height)))
+                    bitmap.to_pil().save(output / f'{index+1}.png')
+                finally:
+                    if bitmap is not None:
+                        bitmap.close()
+                    page.close()
+        return count
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError('PDF 无法读取，请确认文件未加密且未损坏') from exc

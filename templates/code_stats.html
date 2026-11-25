@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block title %}代码统计{% endblock %}{% block crumb %}代码统计{% endblock %}
 {% block content %}
-<div class="page-heading"><div><div class="eyebrow">CODE INSIGHTS</div><h1>代码统计实验室<span class="tiny-badge">&lt;/&gt;</span></h1><p>从一份文件到整个项目，把每一行代码看清楚。</p></div><div class="actions"><button id="function-demo" class="button ghost">五语言示例 ↗</button><button id="demo" class="button ghost">简单示例 ↗</button></div></div>
+<div class="page-heading"><div><div class="eyebrow">CODE INSIGHTS</div><h1>代码统计实验室<span class="tiny-badge">&lt;/&gt;</span></h1><p>从一份文件到整个项目，把每一行代码看清楚。</p></div><div class="actions"><a href="/code-compare" class="button ghost">代码版本对比 ⇄</a><button id="function-demo" class="button ghost">五语言示例 ↗</button><button id="demo" class="button ghost">简单示例 ↗</button></div></div>
 <section class="panel url-panel" aria-labelledby="url-title">
   <div class="section-heading"><div><div class="eyebrow">IMPORT FROM A LINK</div><h2 id="url-title">通过网址统计</h2></div><span class="tool-icon purple" aria-hidden="true">↗</span></div>
   <form id="url-form" class="url-form"><label for="source-url">源码文件、ZIP 或公开 GitHub 仓库网址</label><div class="url-input-row"><input type="url" id="source-url" name="url" maxlength="4096" required placeholder="https://github.com/用户名/仓库名" autocomplete="url"><button type="submit" class="button primary" id="analyze-url">从网址统计 →</button></div></form>

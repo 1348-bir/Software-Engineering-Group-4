@@ -1,0 +1,4 @@
+# Optional OCR environment: Python 3.11/3.12 (CPU).
+-r requirements.txt
+paddlepaddle>=3.0,<4
+paddleocr>=3.0,<4

@@ -144,6 +144,7 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='language.js') }}"></script>
 <script>
     // 骰子点数对应的圆点位置（3x3 网格，索引 0~8）
     const PIP_LAYOUT = {
@@ -164,11 +165,6 @@
         }
     }
 
-    function switchLang(lang) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-    }
 
     async function roll() {
         const btn = document.querySelector('.toolbar .btn');

@@ -16,9 +16,11 @@
       <a class="{{ 'active' if request.path == '/' }}" href="/"><span>⌂</span>小组主页</a>
       <a class="{{ 'active' if request.path.startswith('/members') }}" href="/members"><span>♧</span>小组成员</a>
       <a class="{{ 'active' if request.path == '/projects' }}" href="/projects"><span>▦</span>小组项目</a>
-      <a href="{{ url_for('museum.index') }}"><span>▷</span>多媒体播放器</a>
+      <a href="{{ url_for('museum.index') }}"><span>▷</span>博物馆展播</a>
       <a class="{{ 'active' if request.path == '/code-stats' }}" href="/code-stats"><span>≡</span>代码统计</a>
       <a class="{{ 'active' if request.path.startswith(('/math', '/arithmetic', '/game24')) }}" href="/math"><span>✧</span>趣味数学</a>
+      <a href="/code-compare"><span>⇄</span>代码版本对比</a>
+      <a href="/math/learning"><span>◎</span>错题与学习分析</a>
       <a class="{{ 'active' if request.path == '/history' }}" href="/history"><span>◷</span>练习记录</a>
     </nav>
     <div class="sidebar-note"><span class="status-dot"></span> 保持好奇，持续创造<p>从一行代码，到一个新想法。</p></div>

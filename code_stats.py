@@ -1,8 +1,18 @@
-"""Count physical source lines using Pygments language-aware tokenization."""
+"""多语言代码行统计引擎：按 Pygments 词法结果区分代码 / 注释 / 空行。
+
+核心思路：把源文件当作文本流读入，用 Pygments 按语言分词，
+再逐个 token 判断它是代码还是注释，最后按「行」归并：
+一行里只要出现代码就算代码行，只有注释算注释行，什么都没有算空行；
+含注释的行另外记到 comment_any（所以行尾注释会同时计入代码行和含注释行）。
+
+函数长度不在这里算：``function_analysis`` 给出函数所在的行区间，
+本模块只负责在这些区间里累计「代码行数」，作为函数长度。
+"""
 from collections import defaultdict
 from pathlib import PurePosixPath
 from io import BytesIO, StringIO, IncrementalNewlineDecoder
 import codecs
+import hashlib
 import re
 import zipfile
 
@@ -12,31 +22,45 @@ from pygments.token import Comment
 from pygments.util import ClassNotFound
 from function_analysis import TARGET_LANGUAGES, find_functions, summarize_lengths
 
+# 单个文件、整批上传、ZIP 解压后总量的上限都是 1 GB。
 MAX_UPLOAD = 1024 * 1024 * 1024
 MAX_FILE = MAX_UPLOAD
 MAX_TOTAL = MAX_UPLOAD
-# Allow multipart boundaries/headers in addition to the 1 GB of actual files.
+# 请求体上限在 1 GB 之外再留 4 MB，容纳 multipart 边界与头部。
 MAX_REQUEST = MAX_UPLOAD + 4 * 1024 * 1024
+# 分块读取的块大小：1 MB，兼顾内存占用与读取次数。
 READ_CHUNK = 1024 * 1024
-MAX_FILES = 1000
+# 单次最多处理的文件数（上传、ZIP 条目、解压计数共用）。
+MAX_FILES = 10_000
+# multipart 部件数上限：文件数之外再留 200 给普通表单字段。
+MAX_UPLOAD_FORM_PARTS = MAX_FILES + 200
+# 这些目录里的文件直接跳过，不参与统计。
 IGNORED = {'.git', '.venv', 'venv', 'node_modules', '__pycache__', '.idea', 'dist', 'build', '__MACOSX'}
+# 每行都要维护的计数字段。
 FIELDS = ('total', 'code', 'comment', 'blank', 'comment_any')
 
 
 def stream_size(stream):
+    """返回文件流的总字节数，并把读取位置还原到调用前。"""
     position = stream.tell()
-    stream.seek(0, 2)
+    stream.seek(0, 2)          # 移到末尾
     size = stream.tell()
-    stream.seek(position)
+    stream.seek(position)      # 还原，避免影响后续读取
     return size
 
 
 def read_source(stream):
+    """把文件流解码成文本，返回 ``(文本, 实际字节数)``。
+
+    编码依次尝试 UTF-8（带 BOM）与 GB18030；有 UTF-16 BOM 时按 UTF-16 读。
+    过程中做三件事：统计字节数、拦截超过 1 GB 的文件、用 NUL 字节识别二进制文件。
+    """
     stream.seek(0)
     utf16 = stream.read(2) in (b'\xff\xfe', b'\xfe\xff')
     for encoding in (('utf-16',) if utf16 else ('utf-8-sig', 'gb18030')):
         try:
             stream.seek(0)
+            # IncrementalNewlineDecoder 负责把 \r\n、\r 统一成 \n，便于按行切分。
             decoder = IncrementalNewlineDecoder(codecs.getincrementaldecoder(encoding)(), translate=True)
             size = 0
             with StringIO() as output:
@@ -47,23 +71,35 @@ def read_source(stream):
                     if not utf16 and b'\x00' in data:
                         raise ValueError('二进制文件，已跳过')
                     output.write(decoder.decode(data))
-                output.write(decoder.decode(b'', final=True))
+                output.write(decoder.decode(b'', final=True))   # 冲刷解码器缓冲区
                 return output.getvalue(), size
         except UnicodeDecodeError:
-            pass
+            pass            # 该编码失败，换下一种
     raise ValueError('无法识别文件编码，请转换为 UTF-8')
 
 
 def count_source(name, data):
+    """内存字节串版本的计数入口（测试与内部复用）。"""
     if len(data) > MAX_FILE:
         raise ValueError('单文件超过 1 GB')
     return count_stream(name, BytesIO(data), len(data))
 
 
 def count_stream(name, stream, size):
+    """统计单个文件：返回行数、函数指标与语言等字段。
+
+    行判定规则：
+    - 一行中出现非注释 token → 代码行，同时若出现注释则计入 comment_any；
+    - 只有注释 token → 注释行；
+    - 什么都没有 → 空行。
+    """
     if size > MAX_FILE:
         raise ValueError('单文件超过 1 GB')
     source, actual_size = read_source(stream)
+    content_hash = hashlib.sha256()
+    for offset in range(0, len(source), READ_CHUNK):
+        content_hash.update(source[offset:offset + READ_CHUNK].encode('utf-8'))
+    # 优先按文件名推断语言；无名文件（Dockerfile、Makefile 等）用别名兜底。
     try:
         lexer = get_lexer_for_filename(PurePosixPath(name).name, source, stripnl=False, ensurenl=False)
     except ClassNotFound:
@@ -72,16 +108,27 @@ def count_stream(name, stream, size):
         if alias is None:
             raise ValueError('未识别的语言或非源码文件')
         lexer = get_lexer_by_name(alias, stripnl=False, ensurenl=False)
+
     total = source.count('\n') + int(bool(source) and not source.endswith('\n'))
     function_ranges, function_warning = find_functions(source, lexer.name)
+    # 原生解析器偶发返回越界/无效位置时，丢弃这些范围，避免后面查表 KeyError。
+    if function_ranges is not None:
+        valid = [(start, end) for start, end in function_ranges
+                 if 1 <= start <= end <= total]
+        if len(valid) != len(function_ranges):
+            function_ranges = valid
+            function_warning = '函数位置解析异常，部分函数指标已忽略'
+    # 函数边界（起始行前一行为 start-1，结束行为 end），用于在扫描时记录代码行快照。
     boundaries = {point for start, end in (function_ranges or []) for point in (start - 1, end)}
     code_prefix = {0: 0}
     result = dict(name=name, language=lexer.name, total=total, code=0, comment=0,
                   blank=0, comment_any=0, bytes=actual_size)
+    result['content_hash'] = content_hash.hexdigest()
     has_code = has_comment = False
     processed = 0
 
     def finish_line():
+        """结束当前行：按行内标记累加计数，并在函数边界处记录累计代码行。"""
         nonlocal has_code, has_comment, processed
         if processed < total:
             result['code' if has_code else 'comment' if has_comment else 'blank'] += 1
@@ -92,9 +139,9 @@ def count_stream(name, stream, size):
         has_code = has_comment = False
 
     for token, value in lex(source, lexer):
-        # Preprocessor directives (#include, #define) are source, not comments.
+        # 预处理指令（#include、#define）属于源码，不算注释。
         is_comment = token in Comment and token not in Comment.Preproc and token not in Comment.PreprocFile
-        # Keep only the current line's flags instead of per-line lists for GB-scale input.
+        # 逐行只保留布尔标记；完整源码与词法分析仍会占用内存。
         for fragment in re.finditer(r'[^\n]+|\n', value):
             text = fragment.group()
             if text == '\n':
@@ -105,18 +152,27 @@ def count_stream(name, stream, size):
                 else:
                     has_code = True
     if processed < total:
-        finish_line()
+        finish_line()       # 文件末尾没有换行时补一行
+
+    # 函数长度 = 结束行代码数 - 起始行前一行的代码数（只数有效代码行）。
     lengths = [code_prefix[end] - code_prefix[start - 1] for start, end in (function_ranges or [])]
     result.update(summarize_lengths(lengths))
     result['function_supported'] = function_ranges is not None
     result['function_warning'] = function_warning
     result['_function_lengths'] = lengths
     if function_ranges is None:
-        result['functions'] = None
+        result['functions'] = None      # 不支持该语言时不要显示成 0 个函数
     return result
 
 
 def analyze_uploads(uploads):
+    """处理一批上传项（文件或 ZIP），返回汇总报告。
+
+    报告包含：全局 totals、逐文件明细 files、跳过清单 skipped、
+    按语言汇总的 language_summary，以及按代码行降序的 languages。
+    """
+    if len(uploads) > MAX_FILES:
+        raise ValueError(f'最多上传 {MAX_FILES} 个文件，请分批统计')
     if sum(stream_size(upload.stream) for upload in uploads) > MAX_UPLOAD:
         raise ValueError('上传文件总大小超过 1 GB，请分批统计')
     results, skipped = [], []
@@ -124,44 +180,55 @@ def analyze_uploads(uploads):
     total_bytes, attempted = 0, 0
 
     def consume(name, stream, size):
+        """处理单个文件：校验路径、去重、累计大小，然后计数；失败记入跳过清单。"""
         nonlocal total_bytes, attempted
         name = name.replace('\\', '/')
         path = PurePosixPath(name)
-        if path.is_absolute() or '..' in path.parts or any(p in IGNORED for p in path.parts):
+        # 拒绝绝对路径、向上穿越，以及 .git、node_modules 等忽略目录。
+        if path.is_absolute() or re.match(r'^[A-Za-z]:', name) or '..' in path.parts or any(p in IGNORED for p in path.parts):
             skipped.append({'name': name, 'reason': '忽略的目录或非法路径'})
             return
         attempted += 1
         if attempted > MAX_FILES:
-            raise ValueError('最多统计 1000 个文件，请缩小选择范围')
-        total_bytes += size
-        if total_bytes > MAX_TOTAL:
-            raise ValueError('文件解压后的总大小超过 1 GB')
+            raise ValueError(f'最多统计 {MAX_FILES} 个文件，请缩小选择范围')
         if name in seen:
             skipped.append({'name': name, 'reason': '重复文件路径'})
             return
+        total_bytes += size
+        if total_bytes > MAX_TOTAL:
+            raise ValueError('文件解压后的总大小超过 1 GB')
         seen.add(name)
         try:
             results.append(count_stream(name, stream, size))
         except (ValueError, UnicodeError) as exc:
             skipped.append({'name': name, 'reason': str(exc)})
+        except MemoryError:
+            # 单个超大文件吃光内存时跳过它，其余文件继续统计。
+            skipped.append({'name': name, 'reason': '文件过大导致内存不足，已跳过'})
 
     for upload in uploads:
         name = upload.filename or 'unnamed'
         if name.lower().endswith('.zip'):
+            # ZIP：逐个条目检查大小、加密标记，再交给 consume 统一处理。
             try:
                 with zipfile.ZipFile(upload.stream) as archive:
                     infos = archive.infolist()
-                    if len(infos) > MAX_FILES:
-                        raise ValueError('ZIP 中条目超过 1000 个')
+                    if sum(not info.is_dir() for info in infos) > MAX_FILES:
+                        raise ValueError(f'ZIP 中条目超过 {MAX_FILES} 个')
                     for info in infos:
                         if info.is_dir():
                             continue
                         entry = name + '/' + info.filename
+                        # Validate the original entry before adding the archive prefix.
+                        # Otherwise '/root/a.py' becomes 'archive.zip//root/a.py'.
+                        member_name = info.filename.replace('\\', '/')
+                        member_path = PurePosixPath(member_name)
+                        if member_path.is_absolute() or re.match(r'^[A-Za-z]:', member_name) or '..' in member_path.parts:
+                            skipped.append({'name': entry, 'reason': 'ZIP 条目为绝对路径或包含向上路径'})
+                            continue
                         if info.file_size > MAX_FILE:
                             skipped.append({'name': entry, 'reason': '单文件超过 1 GB'})
                             continue
-                        if total_bytes + info.file_size > MAX_TOTAL:
-                            raise ValueError('文件解压后的总大小超过 1 GB')
                         if info.flag_bits & 1:
                             skipped.append({'name': entry, 'reason': '加密 ZIP 条目无法读取'})
                             continue
@@ -172,6 +239,7 @@ def analyze_uploads(uploads):
         else:
             consume(name, upload.stream, stream_size(upload.stream))
 
+    # ---- 汇总 ----
     totals = {field: sum(row[field] for row in results) for field in FIELDS}
     totals['files'] = len(results)
     totals['skipped'] = len(skipped)
@@ -183,10 +251,13 @@ def analyze_uploads(uploads):
         group['files'] += 1
         for field in FIELDS:
             group[field] += row[field]
+        # 跨文件收集函数长度，最后统一算均值/中位数（不是对文件均值再平均）。
         function_lengths[row['language']].extend(row.pop('_function_lengths'))
         if row['function_warning'] and row['language'] in TARGET_LANGUAGES:
             function_incomplete[row['language']] += 1
+
     language_summary = []
+    # 固定先输出五种目标语言，其余语言（如有）按名称追加，保证表格顺序稳定。
     language_order = list(TARGET_LANGUAGES) + sorted(set(languages) - set(TARGET_LANGUAGES))
     for language in language_order:
         group = languages.get(language, {'files': 0, **dict.fromkeys(FIELDS, 0)})
@@ -201,4 +272,5 @@ def analyze_uploads(uploads):
             language_summary[-1]['functions'] = None
     return {'totals': totals, 'files': results, 'skipped': skipped,
             'language_summary': language_summary,
-            'languages': [{'language': key, **value} for key, value in sorted(languages.items(), key=lambda pair: -pair[1]['code'])]}
+            'languages': [{'language': key, **value} for key, value in
+                          sorted(languages.items(), key=lambda pair: -pair[1]['code'])]}

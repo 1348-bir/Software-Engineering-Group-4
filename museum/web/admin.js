@@ -111,7 +111,7 @@ async function refresh(){catalog=await api('catalog');switchTab(tab);}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 $('upload').onsubmit=e=>{e.preventDefault();const form=e.target,files=[...form.elements.file.files];task(async()=>{
   let success=0;const failures=[];
-  for(const file of files){try{message(/\.(pptx?|docx?)$/i.test(file.name)?'正在转换 '+file.name+'，请保持页面打开…':'正在上传 '+file.name+'…');await api('upload?name='+encodeURIComponent(file.name),'POST',file,true);success++;}catch(err){failures.push(file.name+'：'+err.message);}}
+  for(const file of files){try{message(/\.(pdf|pptx?|docx?)$/i.test(file.name)?'正在转换 '+file.name+'，请保持页面打开…':'正在上传 '+file.name+'…');await api('upload?name='+encodeURIComponent(file.name),'POST',file,true);success++;}catch(err){failures.push(file.name+'：'+err.message);}}
   form.reset();await refresh();message('已上传 '+success+' 份素材。'+failures.join('；'),!!failures.length);
 });};
 $('editor').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target), value=Object.fromEntries(f);

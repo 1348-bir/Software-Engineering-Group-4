@@ -51,3 +51,9 @@ history.db
 *.db-shm
 previews/
 museum/data/
+instance/
+
+# Local OCR benchmark images, uploads and exploratory results
+ocr_benchmark/
+ocr_probe_*.json
+ocr_sample_*.json

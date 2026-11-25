@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}错题练习与学习分析{% endblock %}{% block crumb %}学习分析{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/insights.css">{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">LEARN FROM EVERY ATTEMPT</div><h1>让每一道错题，都有下一步</h1><p>回顾答题表现，找到优先练习的题型。</p></div><a class="button ghost" href="/math/">自由练习 ↗</a></div>
+<div class="actions"><button class="button primary" id="refresh-report">刷新分析</button><button class="button ghost" id="download-report">下载分析报告</button><button class="button ghost" onclick="window.print()">打印报告</button></div>
+<p id="learning-status" role="status" aria-live="polite"></p>
+<section id="report" hidden><div id="learning-metrics" class="insight-metrics"></div>
+<div class="panel" id="trend-panel"><div class="section-heading"><h2>学习趋势报告</h2><a class="button ghost" href="/math/">自适应练习 →</a></div><div id="trend-summary" class="insight-metrics"></div><p id="trend-insight"></p><div class="table-scroll" id="trend-chart" aria-label="近14天答题量趋势"></div><p>绿色表示答对，橙色表示答错；未作答日期正确率显示“—”。手机可左右滑动查看日期。</p><details><summary>查看每日数据</summary><div class="table-scroll"><table><thead><tr><th>日期</th><th>已做题数</th><th>答对</th><th>答错</th><th>正确率</th></tr></thead><tbody id="trend-rows"></tbody></table></div></details><p class="explanation" id="trend-note"></p></div>
+<div class="panel"><h2>重点练习建议</h2><div id="recommendations"></div><p class="explanation" id="scope"></p><p id="excluded"></p></div>
+<div class="panel"><h2>题型表现</h2><div class="table-scroll"><table><thead><tr><th>题型</th><th>已做题数</th><th>答错次数</th><th>正确率</th><th>练习</th></tr></thead><tbody id="category-rows"></tbody></table></div></div>
+<div class="panel"><div class="section-heading"><h2>我的错题本</h2><label><input type="checkbox" id="only-unresolved" checked> 只看尚未订正</label></div><p>保留每道错题的累计答错次数。题型优先练习会先安排原题，再补充同结构变式。</p><div class="table-scroll"><table><thead><tr><th>算式</th><th>题型</th><th>最近答案</th><th>参考答案</th><th>答错次数</th><th>状态</th></tr></thead><tbody id="mistake-rows"></tbody></table></div><button class="button primary" id="practice-all">开始错题驱动练习 →</button></div></section>
+<section class="panel" id="targeted-panel" hidden><div class="section-heading"><h2>专项练习</h2><label>题数 <select id="practice-count"><option>5</option><option selected>10</option><option>20</option></select></label></div><p id="practice-note"></p><form id="targeted-form"><div id="targeted-questions"></div><button class="button primary" type="submit">提交并更新分析</button></form><div id="targeted-result" role="status"></div></section>
+{% endblock %}{% block scripts %}<script src="/static/practice-draft.js"></script><script src="/static/trends.js"></script><script src="/static/learning.js" defer></script>{% endblock %}

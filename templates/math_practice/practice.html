@@ -12,7 +12,8 @@
 
         .q-item {
             display: grid;
-            grid-template-columns: 44px 1fr 140px 72px;
+            grid-template-columns: 30px auto 120px 72px;
+            justify-content: start;
             gap: 12px;
             align-items: center;
             padding: 12px 16px;
@@ -69,6 +70,7 @@
             text-align: center;
             line-height: 1.25;
         }
+        .q-mark { min-width: 0; overflow-wrap: anywhere; }
         .q-mark.ok { color: var(--ok); }
         .q-mark.no { color: var(--danger); }
 
@@ -155,14 +157,16 @@
 
         @media (max-width: 720px) {
             .q-item {
-                grid-template-columns: 34px 1fr 60px;
-                grid-template-areas: 'no expr mark' 'input input input';
+                grid-template-columns: 30px minmax(0, 1fr) 50px;
+                justify-content: stretch;
+                grid-template-areas: 'no expr mark' '. input mark';
                 row-gap: 10px;
             }
             .q-no { grid-area: no; }
             .q-expr { grid-area: expr; }
             .q-mark { grid-area: mark; }
-            .q-input { grid-area: input; }
+            .q-input { grid-area: input; width: 120px; max-width: 100%; box-sizing: border-box; }
+            .q-expr { overflow-wrap: anywhere; }
             .stats { flex-direction: column; gap: 10px; }
         }
     </style>
@@ -214,12 +218,16 @@
         </div>
 
         <div class="toolbar">
-            <button class="btn btn-primary" onclick="loadQuestions()">{{ t('start') }}</button>
+            <a href="/math/learning" class="btn btn-secondary btn-sm">错题练习与学习分析</a>
+            <button class="btn btn-primary" id="startPractice" onclick="loadQuestions()">{{ t('start') }}</button>
             <a href="{{ url_for('math_practice.history', lang=lang) }}" class="btn btn-secondary btn-sm">
                 {{ t('history') }}
             </a>
             <a href="{{ url_for('math_practice.upload', lang=lang) }}" class="btn btn-secondary btn-sm">
                 {{ t('upload') }}
+            </a>
+            <a href="{{ url_for('math_practice.voice_page') }}" class="btn btn-secondary btn-sm">
+                语音识别出题
             </a>
             <select onchange="switchLang(this.value)">
                 <option value="zh" {% if lang=='zh' %}selected{% endif %}>中文</option>
@@ -228,6 +236,12 @@
             </select>
         </div>
 
+        <div style="padding:16px;margin:12px 0;background:#f4f0ff;border-radius:12px;line-height:2">
+            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><label><input type="checkbox" id="adaptiveEnabled"> 自适应难度</label>
+            <label>题型 <select id="adaptiveCategory"><option value="auto">自动推荐薄弱题型</option>{% for kind in ['加法','减法','乘法','除法','混合运算','括号运算','负数运算','分数运算','乘方运算'] %}<option>{{ kind }}</option>{% endfor %}</select></label></div>
+            <p style="margin:4px 0">开启后由近期同类答题表现决定难度，保留下方题数设置；其余手动设置用于关闭自适应后的出题。</p>
+            <p id="difficultyNote" role="status" aria-live="polite"></p>
+        </div>
         <details class="settings" id="settingsPanel">
             <summary>{{ t('settings') }}</summary>
             <div class="settings-body">
@@ -265,7 +279,7 @@
         </div>
 
         <div style="margin-top: 20px; text-align: center;" id="submitBar" hidden>
-            <button class="btn btn-primary btn-lg" onclick="submitAll()">{{ t('submit') }}</button>
+            <button class="btn btn-primary btn-lg" id="submitBtn" onclick="submitAll()">{{ t('submit') }}</button>
         </div>
 
         <div class="stats" id="stats" style="display:none;">
@@ -285,119 +299,9 @@
     </div>
 </div>
 
-<script>
-    const I18N = {
-        question: "{{ t('question', n='{n}') }}",
-        placeholder: "{{ t('expr_placeholder') }}",
-    };
-    let currentQuestions = [];
-
-    function switchLang(lang) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-    }
-
-    // ===== 出题配置（localStorage 记忆） =====
-    function readCfg() {
-        return {
-            n: document.getElementById('cfgCount').value,
-            num_range: document.getElementById('cfgRange').value,
-            allow_mult_div: document.getElementById('cfgMultDiv').checked ? 1 : 0,
-            allow_parentheses: document.getElementById('cfgParen').checked ? 1 : 0,
-            allow_negative: document.getElementById('cfgNeg').checked ? 1 : 0,
-            allow_remainder: document.getElementById('cfgRem').checked ? 1 : 0,
-            allow_fraction: document.getElementById('cfgFrac').checked ? 1 : 0,
-        };
-    }
-
-    function saveCfg() {
-        localStorage.setItem('math_cfg', JSON.stringify(readCfg()));
-    }
-
-    function loadCfg() {
-        try {
-            const s = localStorage.getItem('math_cfg');
-            if (!s) return;
-            const c = JSON.parse(s);
-            document.getElementById('cfgCount').value = c.n || 10;
-            document.getElementById('cfgRange').value = c.num_range || '20';
-            document.getElementById('cfgMultDiv').checked = !!c.allow_mult_div;
-            document.getElementById('cfgParen').checked = !!c.allow_parentheses;
-            document.getElementById('cfgNeg').checked = !!c.allow_negative;
-            document.getElementById('cfgRem').checked = !!c.allow_remainder;
-            document.getElementById('cfgFrac').checked = !!c.allow_fraction;
-        } catch (e) { /* 忽略损坏数据 */ }
-    }
-
-    function openPrint() {
-        const params = new URLSearchParams(readCfg());
-        window.open("{{ url_for('math_practice.print_sheet') }}?" + params.toString());
-    }
-
-    async function loadQuestions() {
-        saveCfg();
-        const params = new URLSearchParams(readCfg());
-        const res = await fetch("{{ url_for('math_practice.api_questions') }}?" + params.toString());
-        const data = await res.json();
-        currentQuestions = data.questions;
-
-        const list = document.getElementById('qList');
-        list.innerHTML = '';
-        currentQuestions.forEach((q, i) => {
-            const div = document.createElement('div');
-            div.className = 'q-item';
-            div.innerHTML = `
-                <div class="q-no">${i + 1}</div>
-                <div class="q-expr">${q.expr} =</div>
-                <input class="q-input" type="text" inputmode="numeric"
-                       placeholder="${I18N.placeholder}" data-idx="${i}">
-                <div class="q-mark" id="mark-${i}"></div>
-            `;
-            list.appendChild(div);
-        });
-
-        document.getElementById('submitBar').hidden = false;
-        document.getElementById('stats').style.display = 'none';
-    }
-
-    async function submitAll() {
-        const items = currentQuestions.map((q, i) => {
-            const input = document.querySelector(`.q-input[data-idx="${i}"]`);
-            return { expr: q.expr, answer: input.value.trim() };
-        });
-
-        const res = await fetch("{{ url_for('math_practice.api_submit') }}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: items, source: 'manual' })
-        });
-        const data = await res.json();
-
-        const itemNodes = document.querySelectorAll('.q-item');
-        data.results.forEach((r, i) => {
-            const mark = document.getElementById(`mark-${i}`);
-            const item = itemNodes[i];
-
-            if (r.correct) {
-                mark.className = 'q-mark ok';
-                mark.textContent = '✓';
-                item.classList.add('row-ok');
-            } else {
-                mark.className = 'q-mark no';
-                mark.innerHTML = `✗<br><span class="std-ans">${r.standard ?? '?'}</span>`;
-                item.classList.add('row-no');
-            }
-        });
-
-        document.getElementById('statTotal').textContent = data.total;
-        document.getElementById('statCorrect').textContent = data.correct;
-        document.getElementById('statAcc').textContent =
-            (data.accuracy * 100).toFixed(1) + '%';
-        document.getElementById('stats').style.display = 'flex';
-    }
-
-    loadCfg();
-</script>
+<script src="{{ url_for('static', filename='language.js') }}"></script>
+<script>const I18N = {placeholder: {{ t('expr_placeholder')|tojson }}};</script>
+<script src="/static/practice-draft.js"></script>
+<script src="/static/practice.js"></script>
 </body>
 </html>

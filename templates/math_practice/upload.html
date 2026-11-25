@@ -67,22 +67,22 @@
             <div class="step">
                 <span class="step-num">1</span>
                 <div>
-                    <span class="step-title">{{ t('howto_upload_s1_title') }}</span>
-                    <p class="step-desc">{{ t('howto_upload_s1_desc') }}</p>
+                    <span class="step-title">上传整页图片</span>
+                    <p class="step-desc">选择一张包含多道算式的清晰图片。</p>
                 </div>
             </div>
             <div class="step">
                 <span class="step-num">2</span>
                 <div>
-                    <span class="step-title">{{ t('howto_upload_s2_title') }}</span>
-                    <p class="step-desc">{{ t('howto_upload_s2_desc') }}</p>
+                    <span class="step-title">核对题目并填答案</span>
+                    <p class="step-desc">按识别题数生成答案框，可修改算式或补录漏题。</p>
                 </div>
             </div>
             <div class="step">
                 <span class="step-num">3</span>
                 <div>
-                    <span class="step-title">{{ t('howto_upload_s3_title') }}</span>
-                    <p class="step-desc">{{ t('howto_upload_s3_desc') }}</p>
+                    <span class="step-title">统一提交批改</span>
+                    <p class="step-desc">填写全部答案后，查看逐题正误与总正确率。</p>
                 </div>
             </div>
         </div>
@@ -93,7 +93,7 @@
             <span class="window-title">{{ t('upload') }}</span>
         </div>
 
-        <div class="toolbar">
+        <div class="toolbar"><a href="/math/learning" class="btn btn-secondary btn-sm">错题练习与学习分析</a><a class="btn btn-secondary btn-sm" href="/math/voice">语音出题</a>
             <a href="{{ url_for('math_practice.practice', lang=lang) }}" class="btn btn-secondary btn-sm">
                 {{ t('title') }}
             </a>
@@ -108,7 +108,7 @@
         </div>
 
         <p style="color: var(--text-muted); margin-top: 0;">
-            {{ t('upload') }}：上传一张包含算式的图片，系统会自动识别并批改。
+            {{ t('upload') }}：上传一张包含算式的图片，先识别题数和算式，再逐题填写答案并统一批改。
         </p>
 
         <form id="uploadForm" onsubmit="return false;">
@@ -118,103 +118,29 @@
                 <br>
                 <img id="preview" class="preview-img" style="display:none;">
                 <br>
-                <label style="color: var(--text-muted); font-size: 0.9rem;">
-                    {{ t('your_answer') }}：
-                </label>
-                <input class="btn-secondary" type="text" id="userAnswer"
-                       placeholder="{{ t('expr_placeholder') }}"
-                       style="width: 120px; margin-left: 8px;">
-                <br><br>
-                <button class="btn btn-primary" onclick="uploadImage()">
-                    {{ t('submit') }}
+                <button class="btn btn-primary" id="uploadBtn" onclick="uploadImage()">
+                    识别整页题目
                 </button>
             </div>
         </form>
 
-        <div class="result-box" id="resultBox" style="display:none;">
-            <div class="result-row">
-                <span class="result-label">识别出的算式</span>
-                <span class="result-value" id="rExpr">-</span>
-            </div>
-            <div class="result-row">
-                <span class="result-label">{{ t('standard') }}</span>
-                <span class="result-value" id="rStd">-</span>
-            </div>
-            <div class="result-row">
-                <span class="result-label">{{ t('result') }}</span>
-                <span class="result-value" id="rResult">-</span>
-            </div>
-        </div>
-
-        <p class="tip tip-info">
-            OCR 识别对手写体支持有限，建议使用打印体算式。<br>
-            如果服务器未安装 PaddleOCR，本功能会自动降级，返回空结果。
-        </p>
+        <p id="ocrMessage" role="status"></p>
+        <form id="answersForm" hidden>
+            <h3 id="questionCount"></h3><p>请先核对识别结果；题号按识别顺序排列。可改正算式、删除误识别项或补录漏题。</p>
+            <div id="questions"></div>
+            <button type="button" class="btn" id="addQuestion">＋ 补充一道题</button>
+            <button type="submit" class="btn btn-primary" id="gradeBtn">提交全部答案</button>
+            <p id="gradeSummary" role="status"></p>
+        </form>
+        <p class="tip tip-info">支持一页中的多道四则运算题。识别题数不代表原图总题数，请核对漏题。若识别失败，可使用“手动录入题目”。</p>
+        <button class="btn" id="manualQuestion" type="button">手动录入题目</button>
     </div>
 </div>
-
-<script>
-    function switchLang(lang) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-    }
-
-    document.getElementById('imageInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            const img = document.getElementById('preview');
-            img.src = ev.target.result;
-            img.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    });
-
-    async function uploadImage() {
-        const fileInput = document.getElementById('imageInput');
-        if (!fileInput.files.length) {
-            alert('请先选择图片');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('image', fileInput.files[0]);
-        formData.append('answer', document.getElementById('userAnswer').value.trim());
-
-        const res = await fetch("{{ url_for('math_practice.api_ocr') }}", {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
-
-        const box = document.getElementById('resultBox');
-        box.style.display = 'block';
-
-        if (data.error && !data.expr) {
-            document.getElementById('rExpr').textContent = '(识别失败)';
-            document.getElementById('rStd').textContent = '-';
-            document.getElementById('rResult').textContent = '-';
-            return;
-        }
-
-        document.getElementById('rExpr').textContent = data.expr || '-';
-
-        const stdEl = document.getElementById('rStd');
-        stdEl.textContent = data.standard ?? '-';
-
-        const r = document.getElementById('rResult');
-        if (data.correct) {
-            r.textContent = '✓ 正确';
-            r.className = 'result-value ok';
-            stdEl.className = 'result-value';
-        } else {
-            r.textContent = '✗ 错误';
-            r.className = 'result-value no';
-            stdEl.className = 'result-value ok';
-        }
-    }
-</script>
+<style>
+.ocr-question{padding:14px;margin:12px 0;border:1px solid var(--border,#ddd);border-radius:10px;display:grid;gap:8px}
+.ocr-question label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ocr-question input{padding:8px;min-width:0;max-width:100%;flex:1;border:1px solid #bbb;border-radius:5px}.ocr-question .answer{max-width:240px}.ocr-question output{white-space:pre-wrap}
+</style>
+<script src="{{ url_for('static', filename='language.js') }}"></script>
+<script src="/static/practice-draft.js"></script><script src="{{ url_for('static', filename='ocr-page.js') }}"></script><script src="/static/extra-drafts.js"></script>
 </body>
 </html>

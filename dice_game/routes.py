@@ -1,6 +1,13 @@
 # dice_game/routes.py
+"""双骰游戏蓝图：页面、投掷、历史与胜率统计。
+
+规则来自课程需求：掷两个骰子，点数总和为 7 获胜，否则失败。
+蓝图前缀 ``/dice``；每次投掷都会落库，页面可轮询最新记录。
+"""
 import os
+
 from session_user import current_user
+from common.history import history_response
 
 from flask import Blueprint, render_template, request, jsonify
 
@@ -19,14 +26,15 @@ bp = Blueprint(
     static_url_path='/static/dice_game',
 )
 
+# 模块级单例：导入蓝图时就建好表。
 db = DiceDB()
-
 
 
 # ---------------- 页面路由 ----------------
 
 @bp.route('/')
 def play():
+    """游戏页；语言由查询参数或浏览器偏好决定。"""
     lang = get_lang(request)
     tr = translator(lang)
     return render_template('dice_game/play.html', t=tr, lang=lang)
@@ -34,6 +42,7 @@ def play():
 
 @bp.route('/history')
 def history():
+    """历史页：最近 100 次投掷与胜率。"""
     lang = get_lang(request)
     tr = translator(lang)
     uid = current_user()
@@ -47,7 +56,7 @@ def history():
 
 @bp.route('/api/roll', methods=['POST'])
 def api_roll():
-    """掷两个骰子，记录结果，返回点数与是否获胜"""
+    """掷两个骰子，记录结果，返回点数、总和与是否获胜。"""
     d1, d2 = roll_dice()
     win = is_win(d1, d2)
 
@@ -64,13 +73,5 @@ def api_roll():
 
 @bp.route('/api/history')
 def api_history():
-    uid = current_user()
-    after_id = int(request.args.get('after', 0))
-    rows = db.recent_attempts(uid, limit=50)
-    new_rows = [r for r in rows if r['id'] > after_id]
-    stats = db.stats(uid)
-    return jsonify({
-        'attempts': new_rows,
-        'stats': stats,
-        'latest_id': rows[0]['id'] if rows else after_id,
-    })
+    """历史轮询接口：返回 ``after`` 之后的新记录与胜率统计。"""
+    return history_response(db, current_user(), db.stats)

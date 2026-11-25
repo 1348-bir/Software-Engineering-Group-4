@@ -13,6 +13,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from .catalog import LIMIT, MEDIA, ROOT, Store, feed, string, update
 from .documents import DOCUMENT_LIMIT, FORMATS, render
+import ipaddress
 
 bp = Blueprint('museum', __name__, url_prefix='/museum')
 WEB = ROOT / 'web'
@@ -171,9 +172,33 @@ def upload(catalog):
     return jsonify(item), 201
 
 
+@bp.post('/api/import-document')
+def import_document():
+    # Local player users may convert on their own computer. Remote clients need admin auth.
+    if request.headers.get('X-Museum-Request') != '1':
+        return jsonify(error='请通过播放器导入文档'), 403
+    try:
+        local = ipaddress.ip_address(request.remote_addr or '').is_loopback
+    except ValueError:
+        local = False
+    if not local:
+        error = admin_auth()
+        if error is not None:
+            return error
+    if Path(request.args.get('name', '')).suffix.lower() not in FORMATS:
+        return jsonify(error='只支持 PDF、PPT、PPTX、DOC、DOCX 文档'), 400
+    try:
+        return upload(store())
+    except (ValueError, TypeError) as exc:
+        return jsonify(error=str(exc)), 400
+    except OSError:
+        current_app.logger.exception('Document import storage failed')
+        return jsonify(error='文档保存失败，请检查磁盘空间和素材目录写入权限'), 500
+
+
 @bp.errorhandler(413)
 def too_large(_error):
-    return jsonify(error='素材上传超过上限：图片与视频 1 GB，Office 文档 50 MB，文本 5 MB，管理请求 1 MB'), 413
+    return jsonify(error='素材上传超过上限：图片与视频 1 GB，PDF 与 Office 文档 50 MB，文本 5 MB，管理请求 1 MB'), 413
 
 
 @bp.route('/api/admin/<kind>', methods=['GET', 'POST', 'DELETE'])

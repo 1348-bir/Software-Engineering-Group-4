@@ -1,4 +1,12 @@
 # math_practice/i18n.py
+"""数学练习页面的多语言文案表（中文 / English / 日本語）。
+
+模板通过 ``t('key')`` 取词，语言由 ``get_lang()`` 决定：
+优先 ``?lang=`` 查询参数，其次浏览器 Accept-Language，最后回退英文。
+某个键漏翻时直接返回键名本身，便于发现缺词。
+"""
+from common.i18n import select_language, translate, bind_translator
+
 TRANSLATIONS = {
     'zh': {
         'title': '数学练习系统',
@@ -11,6 +19,8 @@ TRANSLATIONS = {
         'upload': '上传图片识别',
         'result': '结果',
         'standard': '标准答案',
+        'ocr_processing': '识别中…',
+        'submitting': '提交中…',
         'your_answer': '你的答案',
         'no_record': '暂无记录',
         'switch_lang': '语言',
@@ -59,6 +69,8 @@ TRANSLATIONS = {
         'upload': 'Upload Image',
         'result': 'Result',
         'standard': 'Standard',
+        'ocr_processing': 'Recognizing…',
+        'submitting': 'Submitting…',
         'your_answer': 'Your Answer',
         'no_record': 'No records',
         'switch_lang': 'Language',
@@ -107,6 +119,8 @@ TRANSLATIONS = {
         'upload': '画像アップロード',
         'result': '結果',
         'standard': '正解',
+        'ocr_processing': '認識中…',
+        'submitting': '提出中…',
         'your_answer': 'あなたの答え',
         'no_record': '記録なし',
         'switch_lang': '言語',
@@ -148,26 +162,15 @@ TRANSLATIONS = {
 
 
 def get_lang(request):
-    lang = request.args.get('lang')
-    if lang in TRANSLATIONS:
-        return lang
-    al = request.headers.get('Accept-Language', '')
-    if 'zh' in al:
-        return 'zh'
-    if 'ja' in al:
-        return 'ja'
-    return 'en'
+    """Select the request language using the shared selection policy."""
+    return select_language(request, TRANSLATIONS)
 
 
 def t(key, lang='zh', **kwargs):
-    text = TRANSLATIONS.get(lang, TRANSLATIONS['zh']).get(key, key)
-    if kwargs:
-        try:
-            return text.format(**kwargs)
-        except Exception:
-            return text
-    return text
+    """Translate and format a message, preserving fallback behavior."""
+    return translate(TRANSLATIONS, key, lang, **kwargs)
 
 
 def translator(lang):
-    return lambda key, **kw: t(key, lang, **kw)
+    """Bind a language for template translation calls."""
+    return bind_translator(t, lang)

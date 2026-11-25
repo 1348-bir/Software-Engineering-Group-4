@@ -4,8 +4,8 @@ const defaults = {fontSize:30,layout:'center',mode:'normal',duration:12,repeats:
 let settings = {...defaults};
 try { settings = {...defaults, ...JSON.parse(localStorage.getItem('museum-settings') || '{}')}; } catch (_) {}
 const state = {items:[],index:-1,playing:false,elapsed:0,page:0,cycle:0,emergency:false,resume:false,scale:1,x:0,y:0,last:performance.now(),speechToken:0};
-let media=null, pan=null, toastTimer, speechPending=false;
-const names={video:'视频',text:'文本',image:'图片 / 长图'};
+let media=null, pan=null, toastTimer, speechPending=false, importing=false;
+const names={video:'视频',text:'文本',image:'图片 / 长图',document:'PDF / Office 文档'};
 function toast(message){ $('toast').textContent=message;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',3500); }
 function current(){return state.items[state.index];}
 function options(){return {...settings,...(current()?.settings||{})};}
@@ -20,6 +20,7 @@ function cleanSettings(input={}){
 settings={...defaults,...cleanSettings(settings)};
 function syncControls(){const opts=options();for(const key of Object.keys(defaults)){const el=$(key);if(el.type==='checkbox')el.checked=opts[key];else el.value=opts[key];}$('fontOutput').textContent=opts.fontSize+' px';$('title').value=current()?.title||'';$('content').value=current()?.text||'';$('content').disabled=current()?.type!=='text';}
 function pages(item=current()){
+  if(item?.type==='document')return item.page_count;
   if(!item || options().mode!=='slides' || item.type==='video')return 1;
   if(item.type==='text')return Math.max(1,item.text.split(/\n\s*\n/).filter(x=>x.trim()).length);
   const stage=$('stage');return Math.max(1,Math.ceil((item.height/item.width)/(stage.clientHeight/stage.clientWidth))||1);
@@ -49,7 +50,8 @@ function renderStage(){
   if(media){media.pause();media.removeAttribute('src');media.load();}media=null;cancelSpeech();$('surface').replaceChildren();const item=current();$('empty').style.display=item?'none':'flex';$('typeBadge').textContent=item?names[item.type]:'待播放';$('nowTitle').textContent=item?.title||'尚未选择素材';$('stageName').textContent=item?.title||'等待素材';
   if(!item){state.playing=false;updateTransport();return;}
   const opts=options();const motion=document.createElement('div');motion.className='motion '+opts.transition;const transform=document.createElement('div');transform.className='transform';motion.append(transform);$('surface').append(motion);
-  if(item.type==='text'){const board=document.createElement('div');board.className='text-board '+opts.layout;board.style.fontSize=opts.fontSize+'px';board.textContent=displayText();transform.append(board);}
+  if(item.type==='document'){const image=document.createElement('img');image.alt=item.title+' 第 '+(state.page+1)+' 页';image.src='/museum/media/'+item.documentId+'/page/'+(state.page+1);image.onerror=()=>{setPlaying(false);toast('文档页面无法加载，请重新导入。');};transform.append(image);}
+  else if(item.type==='text'){const board=document.createElement('div');board.className='text-board '+opts.layout;board.style.fontSize=opts.fontSize+'px';board.textContent=displayText();transform.append(board);}
   else if(item.type==='image'){const image=document.createElement('img');image.alt=item.title;image.draggable=false;image.src=item.url;
     if(opts.mode==='slides'&&pages()>1){const height=item.height/item.width*$('stage').clientWidth;const offset=Math.min(state.page*$('stage').clientHeight,Math.max(0,height-$('stage').clientHeight));image.style.cssText=`height:${height}px;object-fit:fill;align-self:flex-start;transform:translateY(-${offset}px)`;}
     image.onerror=()=>toast('图片无法解码：'+item.title);transform.append(image);}
@@ -74,12 +76,25 @@ function move(index,delta){if(state.emergency)return;const target=index+delta;if
 function release(item){if(item?.url?.startsWith('blob:'))URL.revokeObjectURL(item.url);}
 function remove(index){if(state.emergency)return;const selected=current();const [item]=state.items.splice(index,1);release(item);if(selected===item){state.index=Math.min(index,state.items.length-1);state.elapsed=0;state.page=0;state.cycle=0;renderStage();syncControls();}else state.index=state.items.indexOf(selected);renderPlaylist();}
 function clear(){if(state.emergency)return;state.playing=false;state.items.forEach(release);state.items=[];state.index=-1;state.elapsed=0;state.page=0;state.cycle=0;renderStage();renderPlaylist();syncControls();}
-function defaultSort(){const selected=current();const order={video:0,text:1,image:2};state.items.sort((a,b)=>order[a.type]-order[b.type]);state.index=state.items.indexOf(selected);renderPlaylist();}
+function defaultSort(){const selected=current();const order={video:0,text:1,document:1,image:2};state.items.sort((a,b)=>order[a.type]-order[b.type]);state.index=state.items.indexOf(selected);renderPlaylist();}
 async function addFiles(files){
   if(state.emergency){toast('请先结束紧急插播。');return;}
-  let added=0, officeSkipped=0;
+  if(importing){toast('文档正在导入，请稍候。');return;}
+  importing=true;$('import').disabled=true;
+  let added=0;const failures=[];
+  try{
   for(const file of files){
-    if(/\.(pptx?|docx?)$/i.test(file.name)){officeSkipped++;continue;}
+    if(/\.(pdf|pptx?|docx?)$/i.test(file.name)){
+      try{
+        if(file.size>50*1024**2)throw Error('文档最大 50 MB');
+        if(!location.protocol.startsWith('http'))throw Error('请通过 start.bat 启动网站后导入文档');
+        toast('正在上传并转换 '+file.name+'，请稍候…');
+        const response=await fetch('/museum/api/import-document?name='+encodeURIComponent(file.name),{method:'POST',headers:{'X-Museum-Request':'1'},body:file});
+        if(!response.headers.get('content-type')?.includes('application/json'))throw Error(response.status===401?'远程导入需先登录展播管理后台':'转换服务不可用，请重启网站');
+        const data=await response.json();if(!response.ok)throw Error(data.error||'转换失败');
+        state.items.push({type:'document',title:file.name,filename:file.name,documentId:data.id,page_count:data.page_count,settings:{mode:'slides'}});added++;
+      }catch(e){failures.push(file.name+'：'+e.message);}continue;
+    }
     if(file.size>1024**3){toast('单文件上限为 1 GB：'+file.name);continue;}
     if(/\.json$/i.test(file.name)){try{if(file.size>5*1024**2)throw Error('展览方案过大');const plan=JSON.parse(await file.text());if(plan.format!=='museum-exhibition-v1'||!Array.isArray(plan.items))throw Error('不是本项目的展览方案');settings={...settings,...cleanSettings(plan.settings)};for(const entry of plan.items.slice(0,500)){if(entry.type==='text'&&typeof entry.text==='string'){state.items.push({type:'text',title:String(entry.title||'文本').slice(0,200),text:entry.text.slice(0,1000000),settings:cleanSettings(entry.settings)});added++;}}if(plan.items.some(x=>x.type!=='text'))toast('方案中的图片与视频请重新导入本地原文件。');}catch(e){toast('方案导入失败：'+e.message);}continue;}
     let type=file.type.startsWith('video/')?'video':file.type.startsWith('image/')?'image':/\.(txt|md)$/i.test(file.name)?'text':null;
@@ -89,7 +104,8 @@ async function addFiles(files){
     if(type==='text')item.text=await file.text();else{item.url=URL.createObjectURL(file);if(type==='image'){try{const img=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=item.url;});item.width=img.naturalWidth;item.height=img.naturalHeight;}catch(_){release(item);toast('图片无法读取：'+file.name);continue;}}}
     state.items.push(item);added++;
   }
-  defaultSort();if(state.index<0&&state.items.length)select(0);syncControls();renderPlaylist();toast(`已导入 ${added} 项素材。`+(officeSkipped?' PPT 和 Word 文档请在「展播管理 → 素材库」上传。':' 默认顺序：视频 → 文本 → 长图。'));
+  defaultSort();if(state.index<0&&state.items.length)select(0);syncControls();renderPlaylist();toast(`已导入 ${added} 项素材。`+failures.join('；'));
+  }finally{importing=false;$('import').disabled=false;}
 }
 function demo(){
   if(state.emergency)return;clear();const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="2200"><rect width="1000" height="2200" fill="#e9dfc9"/><path d="M0 800Q200 500 400 740T1000 600V1100H0" fill="#9eac91"/><path d="M0 1000Q300 650 650 1000T1000 850V1400H0" fill="#637e69"/><path d="M0 1300Q300 1100 500 1400T1000 1200V1800H0" fill="#3f5d50"/><g fill="#334c40" font-family="serif" text-anchor="middle"><text x="500" y="220" font-size="74">山水之间</text><text x="500" y="300" font-size="25">示例策展长卷 · 原创示意图</text><text x="500" y="1950" font-size="42">移步换景 · 观照自然</text><text x="500" y="2020" font-size="24">开启逐页展示，沿长卷慢慢阅读</text></g></svg>`;

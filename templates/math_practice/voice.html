@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}语音出题{% endblock %}{% block crumb %}语音出题{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">SPEAK A QUESTION</div><h1>你来出题，我来记录。</h1><p>口头说出算式，核对题目后填写答案，再统一批改。</p></div><a class="button ghost" href="/math">返回数学乐园</a></div>
+<section class="panel"><h2>1 说出你的题目</h2><p>例如：“第一题三加五，第二题十二减六，第三题七乘以八”。支持整数四则运算与括号。</p>
+<div class="actions"><button id="startVoice" class="button primary" type="button">🎙 开始说题</button><button id="stopVoice" class="button ghost" type="button" disabled>停止录音</button></div>
+<p id="voiceStatus" role="status">点击开始后允许使用麦克风。</p><p id="interim" class="muted" aria-live="polite"></p>
+<div id="voiceCandidates" aria-label="语音候选结果"></div>
+<label for="transcript">识别文字（可修改，也可直接输入）</label><textarea id="transcript" rows="4" maxlength="10000" placeholder="第一题三加五，第二题十二减六" style="width:100%;padding:12px;margin:10px 0"></textarea>
+<button type="button" id="makeQuestions" class="button primary">按上面的文字生成答题框</button>
+<p class="muted">语音使用浏览器识别服务，通常需要联网；音频可能由浏览器发送给其服务商处理。请在本机 localhost 或 HTTPS 下使用。若浏览器不支持，可直接输入识别文字。</p></section>
+<section class="panel" style="margin-top:20px"><h2>2 核对题目并填写答案</h2><p id="parseStatus" role="status"></p><div id="unrecognized" class="muted"></div>
+<form id="voiceAnswers"><div id="voiceQuestions"></div><button type="button" id="addVoiceQuestion" class="button ghost">＋ 手动补充一道题</button> <button id="gradeVoice" class="button primary" type="submit">提交全部答案</button><p id="voiceSummary" role="status"></p></form></section>
+{% endblock %}
+{% block extra_head %}<style>.voice-question{padding:15px 0;border-bottom:1px solid #ddd;display:grid;gap:8px}.voice-question label{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.voice-question input{padding:8px;min-width:0;max-width:100%;flex:1}.voice-question output{white-space:pre-wrap}.voice-question button{justify-self:start}</style>{% endblock %}
+{% block scripts %}<script src="/static/practice-draft.js"></script><script src="{{ url_for('static',filename='voice.js') }}"></script><script src="/static/extra-drafts.js"></script>{% endblock %}

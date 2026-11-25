@@ -113,52 +113,30 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='history.js') }}"></script>
+<script src="{{ url_for('static', filename='language.js') }}"></script>
 <script>
-    function switchLang(lang) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-    }
-
-    let latestId = {{ attempts[0].id if attempts else 0 }};
+    const updateHistory = createHistoryPoller({
+        url: "{{ url_for('dice_game.api_history') }}",
+        latestId: {{ attempts[0].id if attempts else 0 }},
+        renderRow: (tr, a) => {
+            appendHistoryCell(tr, a.id);
+            appendHistoryCell(tr, a.d1 + ' · ' + a.d2).style.fontFamily = 'Consolas, monospace';
+            appendHistoryCell(tr, '= ' + a.total).style.fontFamily = 'Consolas, monospace';
+            appendHistoryCell(tr, a.is_win ? '✓' : '✗', a.is_win ? 'ok' : 'no');
+            const time = appendHistoryCell(tr, a.created_at);
+            time.style.color = 'var(--text-muted)';
+            time.style.fontSize = '0.85rem';
+        },
+        stats: {
+            statTotal: s => s.total,
+            statWins: s => s.wins,
+            statRate: s => (s.win_rate * 100).toFixed(1) + '%'
+        }
+    });
 
     async function pollHistory() {
-        try {
-            const res = await fetch(
-                "{{ url_for('dice_game.api_history') }}?after=" + latestId
-            );
-            const data = await res.json();
-
-            if (data.attempts.length > 0) {
-                const tbody = document.getElementById('historyBody');
-                if (tbody.querySelector('.empty-tip')) {
-                    tbody.innerHTML = '';
-                }
-                data.attempts.forEach(a => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${a.id}</td>
-                        <td style="font-family: Consolas, monospace;">${a.d1} · ${a.d2}</td>
-                        <td style="font-family: Consolas, monospace;">= ${a.total}</td>
-                        <td class="${a.is_win ? 'ok' : 'no'}">
-                            ${a.is_win ? '✓' : '✗'}
-                        </td>
-                        <td style="color: var(--text-muted); font-size: 0.85rem;">
-                            ${a.created_at}
-                        </td>
-                    `;
-                    tbody.insertBefore(tr, tbody.firstChild);
-                });
-                latestId = data.latest_id;
-            }
-
-            document.getElementById('statTotal').textContent = data.stats.total;
-            document.getElementById('statWins').textContent = data.stats.wins;
-            document.getElementById('statRate').textContent =
-                (data.stats.win_rate * 100).toFixed(1) + '%';
-        } catch (e) {
-            console.error('poll failed', e);
-        }
+        await updateHistory();
     }
 
     setInterval(pollHistory, 3000);

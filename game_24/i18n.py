@@ -1,4 +1,11 @@
 # game_24/i18n.py
+"""24 点页面的多语言文案表（中文 / English / 日本語）。
+
+模板通过 ``t('key')`` 取词，语言由 ``get_lang()`` 决定：
+优先 ``?lang=`` 查询参数，其次浏览器 Accept-Language，最后回退英文。
+"""
+from common.i18n import select_language, translate, bind_translator
+
 TRANSLATIONS = {
     'zh': {
         'title': '24 点游戏',
@@ -94,26 +101,15 @@ TRANSLATIONS = {
 
 
 def get_lang(request):
-    lang = request.args.get('lang')
-    if lang in TRANSLATIONS:
-        return lang
-    al = request.headers.get('Accept-Language', '')
-    if 'zh' in al:
-        return 'zh'
-    if 'ja' in al:
-        return 'ja'
-    return 'en'
+    """Select the request language using the shared selection policy."""
+    return select_language(request, TRANSLATIONS)
 
 
 def t(key, lang='zh', **kwargs):
-    text = TRANSLATIONS.get(lang, TRANSLATIONS['zh']).get(key, key)
-    if kwargs:
-        try:
-            return text.format(**kwargs)
-        except Exception:
-            return text
-    return text
+    """Translate and format a message, preserving fallback behavior."""
+    return translate(TRANSLATIONS, key, lang, **kwargs)
 
 
 def translator(lang):
-    return lambda key, **kw: t(key, lang, **kw)
+    """Bind a language for template translation calls."""
+    return bind_translator(t, lang)
